@@ -11,12 +11,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // Retell sends interaction_type — handle only response_required
+    // Retell sends interaction_type — handle response_required, reminder_required, call_started
     if (body.interaction_type === "ping_pong") {
       return NextResponse.json({ response_id: body.response_id, content: "", content_complete: true });
     }
 
-    if (body.interaction_type !== "response_required" && body.interaction_type !== "reminder_required") {
+    const handled = ["response_required", "reminder_required", "call_started"];
+    if (!handled.includes(body.interaction_type)) {
       return NextResponse.json({ response_id: body.response_id, content: "", content_complete: true });
     }
 

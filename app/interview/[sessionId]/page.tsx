@@ -32,8 +32,15 @@ export default function InterviewRoomPage({ params }: PageProps) {
     clientRef.current = client;
 
     client.on("call_started", () => {
+      // Resume audio context — required by browser autoplay policy
+      client.startAudioPlayback().catch(console.error);
       setStatus("active");
       timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
+    });
+
+    // Also trigger when agent audio track first appears
+    client.on("call_ready", () => {
+      client.startAudioPlayback().catch(console.error);
     });
 
     client.on("call_ended", () => {
@@ -73,6 +80,8 @@ export default function InterviewRoomPage({ params }: PageProps) {
           accessToken,
           sampleRate: 24000,
         });
+        // startCall resolves after room connects — still in user gesture chain, enable audio
+        client.startAudioPlayback().catch(console.error);
       } catch (err) {
         console.error("[startCall error]", err);
         setStatus("idle");

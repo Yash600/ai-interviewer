@@ -11,6 +11,8 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
+    console.log("[chat] interaction_type:", body.interaction_type, "call_id:", body.call?.call_id);
+
     // Retell sends interaction_type — handle response_required, reminder_required, call_started
     if (body.interaction_type === "ping_pong") {
       return NextResponse.json({ response_id: body.response_id, content: "", content_complete: true });
@@ -18,19 +20,24 @@ export async function POST(req: NextRequest) {
 
     const handled = ["response_required", "reminder_required", "call_started"];
     if (!handled.includes(body.interaction_type)) {
+      console.log("[chat] unhandled interaction_type, returning empty");
       return NextResponse.json({ response_id: body.response_id, content: "", content_complete: true });
     }
 
     const callId: string = body.call?.call_id;
     if (!callId) {
+      console.log("[chat] missing call_id, body keys:", Object.keys(body));
       return NextResponse.json({ error: "Missing call_id" }, { status: 400 });
     }
 
     // Load session from DB
     const session = await getSessionByCallId(callId);
     if (!session) {
+      console.log("[chat] session not found for call_id:", callId);
       return NextResponse.json({ error: "Session not found" }, { status: 404 });
     }
+
+    console.log("[chat] session found:", session.id, "stage:", session.state_json?.stage ?? "opening");
 
     // Build current state from DB (stored state_json + candidate profile)
     const storedState = session.state_json ?? {};
@@ -84,14 +91,17 @@ export async function POST(req: NextRequest) {
       questionCount: updatedState.questionCount,
     });
 
+    const responseContent = updatedState.aiResponse ?? "";
+    console.log("[chat] returning content (first 100):", responseContent.slice(0, 100));
+
     // Return response to Retell — it will speak this text
     return NextResponse.json({
       response_id: body.response_id,
-      content: updatedState.aiResponse ?? "",
+      content: responseContent,
       content_complete: true,
     });
   } catch (err) {
-    console.error("[interview/chat]", err);
+    console.error("[interview/chat] ERROR:", err);
     return NextResponse.json(
       { response_id: 0, content: "I'm sorry, could you repeat that?", content_complete: true },
       { status: 200 } // Always return 200 to Retell

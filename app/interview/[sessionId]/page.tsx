@@ -31,18 +31,18 @@ export default function InterviewRoomPage({ params }: PageProps) {
     const client = new RetellWebClient();
     clientRef.current = client;
 
-    client.on("conversationStarted", () => {
+    client.on("call_started", () => {
       setStatus("active");
       timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
     });
 
-    client.on("conversationEnded", () => {
+    client.on("call_ended", () => {
       setStatus("ended");
       if (timerRef.current) clearInterval(timerRef.current);
     });
 
-    client.on("agentStartTalking", () => setStatus("ai_speaking"));
-    client.on("agentStopTalking",  () => setStatus("active"));
+    client.on("agent_start_talking", () => setStatus("ai_speaking"));
+    client.on("agent_stop_talking",  () => setStatus("active"));
 
     client.on("update", (update) => {
       if (update.transcript) {
@@ -69,10 +69,9 @@ export default function InterviewRoomPage({ params }: PageProps) {
 
       setStatus("connecting");
       try {
-        await (client.startCall as (opts: { accessToken: string; sampleRate: number; enableUpdate: boolean }) => Promise<void>)({
+        await client.startCall({
           accessToken,
           sampleRate: 24000,
-          enableUpdate: true,
         });
       } catch (err) {
         console.error("[startCall error]", err);

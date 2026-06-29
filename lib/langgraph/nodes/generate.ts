@@ -16,7 +16,7 @@ export async function generateResponseNode(
   const systemPrompt = buildSystemPrompt(
     state.interviewType,
     state.candidateProfile,
-    state.nextAction,
+    state.nextAction ?? null,
     state.questionCount
   );
 

@@ -7,7 +7,7 @@ const MIN_QUESTIONS_BEFORE_CLOSE = 5;
 export function routerNode(state: InterviewState): Partial<InterviewState> {
   // Opening — no routing needed, go straight to generate
   if (state.stage === "opening") {
-    return { nextAction: null, stage: "in_progress" };
+    return { nextAction: undefined, stage: "in_progress" };
   }
 
   // Force close if max questions reached
@@ -40,5 +40,5 @@ export function routerNode(state: InterviewState): Partial<InterviewState> {
 
 // Conditional edge function — returns the branch name
 export function routerEdge(state: InterviewState): string {
-  return state.nextAction ?? "next_question";
+  return state.nextAction ?? "null";
 }

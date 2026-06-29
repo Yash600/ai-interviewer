@@ -14,11 +14,11 @@ export async function evaluateAnswerNode(
 ): Promise<Partial<InterviewState>> {
   // Skip evaluation for the opening (first AI message, no user answer yet)
   if (state.stage === "opening" || state.messages.length < 2) {
-    return { answerQuality: null, nextAction: null };
+    return { answerQuality: undefined, nextAction: undefined };
   }
 
   const lastUserMsg = [...state.messages].reverse().find(m => m.role === "user");
-  if (!lastUserMsg) return { answerQuality: null, nextAction: null };
+  if (!lastUserMsg) return { answerQuality: undefined, nextAction: undefined };
 
   const response = await llm.invoke([
     {

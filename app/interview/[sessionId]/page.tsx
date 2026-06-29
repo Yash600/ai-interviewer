@@ -56,26 +56,31 @@ export default function InterviewRoomPage({ params }: PageProps) {
       setStatus("ended");
     });
 
-    // Request mic permission explicitly before handing off to Retell
-    try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-      stream.getTracks().forEach(t => t.stop());
-    } catch {
-      console.error("[mic permission denied]");
-      setStatus("idle");
-      return;
-    }
+    // Async init: request mic then start call
+    const startInterview = async () => {
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        stream.getTracks().forEach(t => t.stop());
+      } catch {
+        console.error("[mic permission denied]");
+        setStatus("idle");
+        return;
+      }
 
-    // Start call
-    setStatus("connecting");
-    client.startCall({
-      accessToken,
-      sampleRate: 24000,
-      enableUpdate: true,
-    } as Parameters<typeof client.startCall>[0]).catch(err => {
-      console.error("[startCall error]", err);
-      setStatus("idle");
-    });
+      setStatus("connecting");
+      try {
+        await (client.startCall as (opts: { accessToken: string; sampleRate: number; enableUpdate: boolean }) => Promise<void>)({
+          accessToken,
+          sampleRate: 24000,
+          enableUpdate: true,
+        });
+      } catch (err) {
+        console.error("[startCall error]", err);
+        setStatus("idle");
+      }
+    };
+
+    startInterview();
 
     return () => {
       client.stopCall();

@@ -53,11 +53,21 @@ Be specific. Reference actual things the candidate said. Do not be generic.`,
   ]);
 
   const raw = response.content as string;
-  // Extract JSON from the response
+  // Extract JSON block from the response (Groq sometimes wraps in markdown)
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) throw new Error("Failed to parse feedback JSON");
+  if (!jsonMatch) throw new Error("Failed to parse feedback JSON — no JSON block found");
 
-  const parsed = JSON.parse(jsonMatch[0]);
+  let parsed: Record<string, unknown>;
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    // Groq occasionally produces malformed JSON — strip control chars and retry
+    const cleaned = jsonMatch[0]
+      .replace(/[\x00-\x1F\x7F]/g, " ") // strip control characters
+      .replace(/,\s*}/g, "}")            // trailing commas
+      .replace(/,\s*]/g, "]");
+    parsed = JSON.parse(cleaned);
+  }
   return {
     overallScore: parsed.overallScore ?? 70,
     communication: parsed.communication ?? "B",

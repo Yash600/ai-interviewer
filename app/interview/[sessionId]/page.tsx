@@ -15,31 +15,32 @@ export default function InterviewRoomPage({ params }: PageProps) {
   const { sessionId } = use(params);
   const router = useRouter();
   const clientRef = useRef<RetellWebClient | null>(null);
+  const accessTokenRef = useRef<string | null>(null);
   const [status, setStatus] = useState<CallStatus>("idle");
   const [transcript, setTranscript] = useState("");
   const [elapsed, setElapsed] = useState(0);
   const [ending, setEnding] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  // Format elapsed seconds → MM:SS
-  const formatTime = (s: number) => `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
+  const formatTime = (s: number) =>
+    `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
+  // Set up client + event listeners once — do NOT auto-start
   useEffect(() => {
     const accessToken = sessionStorage.getItem(`retell_token_${sessionId}`);
     if (!accessToken) { router.push("/interview/setup"); return; }
+    accessTokenRef.current = accessToken;
 
     const client = new RetellWebClient();
     clientRef.current = client;
 
     client.on("call_started", () => {
-      // Resume audio context — required by browser autoplay policy
-      client.startAudioPlayback().catch(console.error);
       setStatus("active");
       timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
     });
 
-    // Also trigger when agent audio track first appears
     client.on("call_ready", () => {
+      // Agent audio track subscribed — ensure audio plays
       client.startAudioPlayback().catch(console.error);
     });
 
@@ -60,41 +61,38 @@ export default function InterviewRoomPage({ params }: PageProps) {
 
     client.on("error", (err) => {
       console.error("[retell error]", err);
-      setStatus("ended");
+      setStatus("idle");
     });
-
-    // Async init: request mic then start call
-    const startInterview = async () => {
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-        stream.getTracks().forEach(t => t.stop());
-      } catch {
-        console.error("[mic permission denied]");
-        setStatus("idle");
-        return;
-      }
-
-      setStatus("connecting");
-      try {
-        await client.startCall({
-          accessToken,
-          sampleRate: 24000,
-        });
-        // startCall resolves after room connects — still in user gesture chain, enable audio
-        client.startAudioPlayback().catch(console.error);
-      } catch (err) {
-        console.error("[startCall error]", err);
-        setStatus("idle");
-      }
-    };
-
-    startInterview();
 
     return () => {
       client.stopCall();
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [sessionId, router]);
+
+  // Called from the Start button — guaranteed user gesture → audio unlocked
+  async function handleStart() {
+    const client = clientRef.current;
+    const accessToken = accessTokenRef.current;
+    if (!client || !accessToken) return;
+
+    // Unlock browser audio context immediately in the gesture handler
+    try {
+      const ctx = new AudioContext();
+      await ctx.resume();
+      ctx.close();
+    } catch { /* ignore */ }
+
+    setStatus("connecting");
+    try {
+      await client.startCall({ accessToken, sampleRate: 24000 });
+      // Still close to user gesture — enable audio playback
+      client.startAudioPlayback().catch(console.error);
+    } catch (err) {
+      console.error("[startCall error]", err);
+      setStatus("idle");
+    }
+  }
 
   async function handleEnd() {
     if (ending) return;
@@ -116,7 +114,7 @@ export default function InterviewRoomPage({ params }: PageProps) {
   }
 
   const statusLabel: Record<CallStatus, string> = {
-    idle:          "Preparing...",
+    idle:          "Ready to begin",
     connecting:    "Connecting...",
     active:        "Listening to you",
     ai_speaking:   "AI Interviewer Speaking",
@@ -147,7 +145,6 @@ export default function InterviewRoomPage({ params }: PageProps) {
       {/* Center — Orb */}
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6">
         <div className="relative mb-6">
-          {/* Pulse rings */}
           {status === "ai_speaking" && (
             <>
               <div className="absolute rounded-full border orb-ring"
@@ -156,7 +153,6 @@ export default function InterviewRoomPage({ params }: PageProps) {
                 style={{ inset: "-38px", borderColor: "rgba(167,139,250,0.1)" }} />
             </>
           )}
-          {/* Orb */}
           <motion.div
             animate={{ scale: status === "ai_speaking" ? [1, 1.03, 1] : 1 }}
             transition={{ duration: 2, repeat: Infinity }}
@@ -173,8 +169,10 @@ export default function InterviewRoomPage({ params }: PageProps) {
         {/* Status */}
         <div className="flex items-center gap-2 mb-4">
           <span className="w-2 h-2 rounded-full"
-            style={{ background: status === "ai_speaking" ? "#a3e635" : status === "active" ? "#a78bfa" : "#6b7280",
-              boxShadow: status === "ai_speaking" ? "0 0 8px #a3e635" : "none" }} />
+            style={{
+              background: status === "ai_speaking" ? "#a3e635" : status === "active" ? "#a78bfa" : "#6b7280",
+              boxShadow: status === "ai_speaking" ? "0 0 8px #a3e635" : "none",
+            }} />
           <span className="text-sm font-semibold" style={{ color: "rgba(255,255,255,0.75)" }}>
             {statusLabel[status]}
           </span>
@@ -201,15 +199,26 @@ export default function InterviewRoomPage({ params }: PageProps) {
 
       {/* Bottom controls */}
       <div className="relative z-10 px-6 pb-8 flex gap-3 max-w-sm mx-auto w-full">
-        <div className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold"
-          style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>
-          🎤 {status === "active" || status === "user_speaking" ? "Listening..." : "Mic"}
-        </div>
-        <button onClick={handleEnd} disabled={ending || status === "ended"}
-          className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition-all disabled:opacity-50"
-          style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5" }}>
-          {ending ? "Ending..." : "⬛ End Interview"}
-        </button>
+        {status === "idle" ? (
+          // Start button — the user gesture that unlocks audio
+          <button onClick={handleStart}
+            className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-all"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)", border: "1px solid rgba(167,139,250,0.3)", color: "white", boxShadow: "0 0 24px rgba(124,58,237,0.4)" }}>
+            🎙 Start Interview
+          </button>
+        ) : (
+          <>
+            <div className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold"
+              style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>
+              🎤 {status === "active" || status === "user_speaking" ? "Listening..." : status === "connecting" ? "Connecting..." : "Mic"}
+            </div>
+            <button onClick={handleEnd} disabled={ending || status === "ended"}
+              className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition-all disabled:opacity-50"
+              style={{ background: "rgba(239,68,68,0.12)", border: "1px solid rgba(239,68,68,0.25)", color: "#fca5a5" }}>
+              {ending ? "Ending..." : "⬛ End Interview"}
+            </button>
+          </>
+        )}
       </div>
     </div>
   );

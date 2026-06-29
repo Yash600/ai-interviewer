@@ -76,7 +76,17 @@ export default function InterviewRoomPage({ params }: PageProps) {
     const accessToken = accessTokenRef.current;
     if (!client || !accessToken) return;
 
-    // Unlock browser audio context immediately in the gesture handler
+    // 1. Play a silent HTML <audio> to unlock the browser's autoplay policy for this domain.
+    //    Chrome requires a real <audio>.play() inside a user gesture before any subsequent
+    //    programmatically-created audio elements are allowed to autoplay.
+    try {
+      // Shortest valid WAV (44 bytes, silence)
+      const silence = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
+      silence.volume = 0;
+      await silence.play();
+    } catch { /* ignore — some browsers block even this, but it's best-effort */ }
+
+    // 2. Unlock Web Audio API context
     try {
       const ctx = new AudioContext();
       await ctx.resume();
@@ -86,7 +96,6 @@ export default function InterviewRoomPage({ params }: PageProps) {
     setStatus("connecting");
     try {
       await client.startCall({ accessToken, sampleRate: 24000 });
-      // Still close to user gesture — enable audio playback
       client.startAudioPlayback().catch(console.error);
     } catch (err) {
       console.error("[startCall error]", err);

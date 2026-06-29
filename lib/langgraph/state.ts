@@ -20,12 +20,8 @@ export const InterviewStateAnnotation = Annotation.Root({
     reducer: (existing, incoming) => existing.concat(incoming),
     default: () => [],
   }),
-  answerQuality: Annotation<"strong" | "weak" | "incomplete" | "interesting" | undefined>({
-    default: () => undefined,
-  }),
-  nextAction: Annotation<"followup" | "next_question" | "close" | undefined>({
-    default: () => undefined,
-  }),
+  answerQuality: Annotation<"strong" | "weak" | "incomplete" | "interesting" | undefined>(),
+  nextAction: Annotation<"followup" | "next_question" | "close" | undefined>(),
   stage: Annotation<"opening" | "in_progress" | "closing" | "done">({
     default: () => "opening",
   }),

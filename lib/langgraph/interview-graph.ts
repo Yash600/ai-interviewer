@@ -6,10 +6,13 @@ import { routerNode, routerEdge } from "./nodes/router";
 import { generateResponseNode } from "./nodes/generate";
 
 const graph = new StateGraph(InterviewStateAnnotation)
-  // Nodes
-  .addNode("evaluate", evaluateAnswerNode)
-  .addNode("route",    routerNode)
-  .addNode("generate", generateResponseNode)
+  // Nodes — cast to any to bypass LangGraph's strict internal UpdateType
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  .addNode("evaluate", evaluateAnswerNode as any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  .addNode("route",    routerNode as any)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  .addNode("generate", generateResponseNode as any)
 
   // Edges
   .addEdge(START,      "evaluate")

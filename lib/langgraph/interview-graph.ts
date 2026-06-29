@@ -33,6 +33,7 @@ export const interviewGraph = graph.compile();
 
 // Helper: run one turn of the interview
 export async function runInterviewTurn(state: InterviewState): Promise<InterviewState> {
-  const result = await interviewGraph.invoke(state);
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const result = await interviewGraph.invoke(state as any);
   return result as InterviewState;
 }

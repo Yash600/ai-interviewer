@@ -57,7 +57,8 @@ Be specific. Reference actual things the candidate said. Do not be generic.`,
   const jsonMatch = raw.match(/\{[\s\S]*\}/);
   if (!jsonMatch) throw new Error("Failed to parse feedback JSON — no JSON block found");
 
-  let parsed: Record<string, unknown>;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let parsed: Record<string, any>;
   try {
     parsed = JSON.parse(jsonMatch[0]);
   } catch {

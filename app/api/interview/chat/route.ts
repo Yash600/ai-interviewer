@@ -13,14 +13,8 @@ export async function POST(req: NextRequest) {
 
     console.log("[chat] interaction_type:", body.interaction_type, "call_id:", body.call?.call_id);
 
-    // Retell sends interaction_type — handle response_required, reminder_required, call_started
+    // Only skip ping_pong — handle everything else (response_required, call_started, reminder_required, etc.)
     if (body.interaction_type === "ping_pong") {
-      return NextResponse.json({ response_id: body.response_id, content: "", content_complete: true });
-    }
-
-    const handled = ["response_required", "reminder_required", "call_started"];
-    if (!handled.includes(body.interaction_type)) {
-      console.log("[chat] unhandled interaction_type, returning empty");
       return NextResponse.json({ response_id: body.response_id, content: "", content_complete: true });
     }
 

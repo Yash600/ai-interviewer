@@ -13,19 +13,46 @@ export default function ReportPage({ params }: PageProps) {
   const [data, setData] = useState<any>(null);
   const [loading, setLoading] = useState(true);
 
+  const [attempts, setAttempts] = useState(0);
+
   useEffect(() => {
-    fetch(`/api/report/${sessionId}`)
-      .then(r => r.json())
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => { setLoading(false); });
-  }, [sessionId]);
+    let cancelled = false;
+    let timer: NodeJS.Timeout;
+
+    async function poll() {
+      try {
+        const r = await fetch(`/api/report/${sessionId}`);
+        const d = await r.json();
+        if (cancelled) return;
+        if (d?.feedback) {
+          setData(d);
+          setLoading(false);
+        } else if (attempts < 15) {
+          // retry every 2s for up to 30s
+          timer = setTimeout(() => { setAttempts(a => a + 1); }, 2000);
+        } else {
+          setData(d);
+          setLoading(false);
+        }
+      } catch {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    poll();
+    return () => { cancelled = true; clearTimeout(timer); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sessionId, attempts]);
 
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center" style={{ background: "#0d0d1a" }}>
         <div className="text-center">
           <div className="w-12 h-12 rounded-full border-2 border-brand-500 border-t-transparent animate-spin mx-auto mb-4" />
-          <p className="text-sm" style={{ color: "rgba(255,255,255,0.5)" }}>Generating your feedback report...</p>
+          <p className="text-sm mb-1" style={{ color: "rgba(255,255,255,0.5)" }}>Generating your feedback report…</p>
+          {attempts > 2 && (
+            <p className="text-xs" style={{ color: "rgba(255,255,255,0.25)" }}>This can take up to 30 seconds</p>
+          )}
         </div>
       </div>
     );
@@ -38,8 +65,11 @@ export default function ReportPage({ params }: PageProps) {
         <div className="text-center">
           <div className="text-4xl mb-4">🎙</div>
           <h2 className="text-xl font-bold text-white mb-2">Report not ready yet</h2>
-          <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.4)" }}>The session was too short to generate feedback.</p>
-          <Link href="/dashboard"><button className="btn-primary">Go to Dashboard</button></Link>
+          <p className="text-sm mb-6" style={{ color: "rgba(255,255,255,0.4)" }}>The interview may have been too short, or feedback is still processing. Check back in a moment.</p>
+          <div className="flex gap-3 justify-center">
+            <button onClick={() => { setLoading(true); setAttempts(0); }} className="btn-primary">Retry</button>
+            <Link href="/dashboard"><button className="btn-secondary">Dashboard</button></Link>
+          </div>
         </div>
       </div>
     );

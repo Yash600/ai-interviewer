@@ -5,34 +5,34 @@ import type { InterviewState, Message } from "@/lib/langgraph/state";
 
 export const runtime = "nodejs";
 
-// VAPI Custom LLM endpoint — receives OpenAI-format chat completions requests
+// VAPI Custom LLM endpoint — supports both streaming and non-streaming
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    // VAPI passes metadata via different paths depending on how start() is called
+    const isStream = body.stream === true;
+
+    // VAPI passes sessionId in different metadata locations
     const sessionId: string =
       body.call?.metadata?.sessionId ??
       body.call?.assistantOverrides?.metadata?.sessionId ??
       body.metadata?.sessionId;
-    console.log("[vapi/chat] sessionId:", sessionId, "call_id:", body.call?.id);
-    // Full dump so we can see exactly where VAPI puts metadata
+
+    console.log("[vapi/chat] sessionId:", sessionId, "stream:", isStream, "call_id:", body.call?.id);
     console.log("[vapi/chat] call.metadata:", JSON.stringify(body.call?.metadata));
-    console.log("[vapi/chat] call.assistantOverrides:", JSON.stringify(body.call?.assistantOverrides));
     console.log("[vapi/chat] messages count:", body.messages?.length);
 
     if (!sessionId) {
-      // Simulation / test call with no session — return a demo response
-      return openAIResponse(body.model, "Hello! I'm Alex, your AI interviewer. This is a test — start a real interview from the app to begin.");
+      const demo = "Hello! I'm Alex. This is a test call — please start a real interview from the app.";
+      return isStream ? streamResponse(body.model, demo) : openAIResponse(body.model, demo);
     }
 
     const session = await getSessionById(sessionId);
     if (!session) {
-      console.log("[vapi/chat] session not found:", sessionId);
-      return openAIResponse(body.model, "Session not found. Please start a new interview.");
+      const msg = "Session not found. Please start a new interview.";
+      return isStream ? streamResponse(body.model, msg) : openAIResponse(body.model, msg);
     }
 
-    // Extract last user message from the messages array VAPI sends
     const messages: { role: string; content: string }[] = body.messages ?? [];
     const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
 
@@ -63,6 +63,7 @@ export async function POST(req: NextRequest) {
     }
 
     const updatedState = await runInterviewTurn(currentState);
+    const responseText = updatedState.aiResponse ?? "Could you repeat that?";
 
     if (updatedState.aiResponse) {
       await insertMessage({ sessionId: session.id, role: "assistant", content: updatedState.aiResponse });
@@ -75,26 +76,60 @@ export async function POST(req: NextRequest) {
       questionCount: updatedState.questionCount,
     });
 
-    console.log("[vapi/chat] response:", updatedState.aiResponse?.slice(0, 100));
-    return openAIResponse(body.model, updatedState.aiResponse ?? "Could you repeat that?");
+    console.log("[vapi/chat] response:", responseText.slice(0, 120));
+    return isStream ? streamResponse(body.model, responseText) : openAIResponse(body.model, responseText);
 
   } catch (err) {
     console.error("[vapi/chat] ERROR:", err);
-    return openAIResponse("interview-ai", "I'm sorry, could you repeat that?");
+    const msg = "I'm sorry, could you repeat that?";
+    // Default to streaming since that's what VAPI uses
+    return streamResponse("interview-ai", msg);
   }
 }
 
+// ── Non-streaming (JSON) ──────────────────────────────────────
 function openAIResponse(model: string, content: string) {
   return NextResponse.json({
     id: `chatcmpl-${Date.now()}`,
     object: "chat.completion",
     created: Math.floor(Date.now() / 1000),
     model: model ?? "interview-ai",
-    choices: [{
-      index: 0,
-      message: { role: "assistant", content },
-      finish_reason: "stop",
-    }],
+    choices: [{ index: 0, message: { role: "assistant", content }, finish_reason: "stop" }],
     usage: { prompt_tokens: 0, completion_tokens: 0, total_tokens: 0 },
+  });
+}
+
+// ── Streaming (SSE) ───────────────────────────────────────────
+function streamResponse(model: string, content: string) {
+  const encoder = new TextEncoder();
+  const id = `chatcmpl-${Date.now()}`;
+  const created = Math.floor(Date.now() / 1000);
+  const m = model ?? "interview-ai";
+
+  const chunks = [
+    // role chunk
+    { id, object: "chat.completion.chunk", created, model: m, choices: [{ index: 0, delta: { role: "assistant", content: "" }, finish_reason: null }] },
+    // content chunk (single chunk with full text — VAPI handles this fine)
+    { id, object: "chat.completion.chunk", created, model: m, choices: [{ index: 0, delta: { content }, finish_reason: null }] },
+    // finish chunk
+    { id, object: "chat.completion.chunk", created, model: m, choices: [{ index: 0, delta: {}, finish_reason: "stop" }] },
+  ];
+
+  const readable = new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+      }
+      controller.enqueue(encoder.encode("data: [DONE]\n\n"));
+      controller.close();
+    },
+  });
+
+  return new Response(readable, {
+    headers: {
+      "Content-Type": "text/event-stream",
+      "Cache-Control": "no-cache",
+      "X-Accel-Buffering": "no",
+    },
   });
 }

@@ -54,6 +54,11 @@ export const InterviewStateAnnotation = Annotation.Root({
     reducer: replace,
     default: () => "",
   }),
+
+  mode: Annotation<"full" | "fast">({
+    reducer: replace,
+    default: () => "full" as const,
+  }),
 });
 
 export type InterviewState = typeof InterviewStateAnnotation.State;

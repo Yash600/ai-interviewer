@@ -1,44 +1,50 @@
 import "server-only";
 import type { InterviewState } from "../state";
 
-const MAX_QUESTIONS = 6;        // hard cap — forces close at 6 questions (~7-8 min)
-const MIN_QUESTIONS_BEFORE_CLOSE = 4; // can start wrapping up after 4 good answers
+// Full interview: 6 questions (~7-8 min)
+// Fast interview: 3 questions (~2-3 min)
+function limits(mode: string) {
+  return mode === "fast"
+    ? { max: 3, minBeforeClose: 2 }
+    : { max: 6, minBeforeClose: 4 };
+}
 
 export function routerNode(state: InterviewState): Partial<InterviewState> {
-  // Opening — no routing needed, go straight to generate
+  // Opening — go straight to generate
   if (state.stage === "opening") {
     return { nextAction: undefined, stage: "in_progress" };
   }
 
-  // Force close if max questions reached
-  if (state.questionCount >= MAX_QUESTIONS) {
+  const { max, minBeforeClose } = limits(state.mode ?? "full");
+
+  // Hard cap
+  if (state.questionCount >= max) {
     return { nextAction: "close", stage: "closing" };
   }
 
-  // Decide based on answer quality
   const { answerQuality, questionCount } = state;
 
+  // Fast mode: minimal follow-ups — only follow up on genuinely incomplete answers
+  if (state.mode === "fast") {
+    if (answerQuality === "incomplete") return { nextAction: "followup" };
+    if (questionCount >= minBeforeClose)  return { nextAction: "close", stage: "closing" };
+    return { nextAction: "next_question" };
+  }
+
+  // Full mode: intelligent routing
   if (answerQuality === "weak" || answerQuality === "incomplete") {
     return { nextAction: "followup" };
   }
-
   if (answerQuality === "interesting") {
     return { nextAction: "followup" };
   }
-
-  // Strong answer — move on, unless we should close
-  if (answerQuality === "strong" && questionCount >= MIN_QUESTIONS_BEFORE_CLOSE) {
-    // 30% chance to wrap up after min questions covered
-    const shouldClose = Math.random() < 0.3;
-    if (shouldClose) {
-      return { nextAction: "close", stage: "closing" };
-    }
+  if (answerQuality === "strong" && questionCount >= minBeforeClose) {
+    if (Math.random() < 0.3) return { nextAction: "close", stage: "closing" };
   }
 
   return { nextAction: "next_question" };
 }
 
-// Conditional edge function — returns the branch name
 export function routerEdge(state: InterviewState): string {
   return state.nextAction ?? "null";
 }

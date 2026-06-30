@@ -17,7 +17,8 @@ export async function generateResponseNode(
     state.interviewType,
     state.candidateProfile,
     state.nextAction ?? null,
-    state.questionCount
+    state.questionCount,
+    state.mode ?? "full"
   );
 
   // Build conversation history for the LLM (last 12 messages max for context window)

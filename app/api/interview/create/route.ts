@@ -10,13 +10,17 @@ export async function POST(req: NextRequest) {
     const payload = token ? await verifyToken(token) : null;
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-    const { interviewType } = await req.json();
+    const { interviewType, mode } = await req.json();
     const validTypes = ["behavioral", "technical", "system_design", "hr"];
     if (!validTypes.includes(interviewType)) {
       return NextResponse.json({ error: "Invalid interview type" }, { status: 400 });
     }
 
-    const session = await createSession({ userId: payload.userId, interviewType });
+    const session = await createSession({
+      userId: payload.userId,
+      interviewType,
+      mode: mode === "fast" ? "fast" : "full",
+    });
 
     return NextResponse.json({ sessionId: session.id });
   } catch (err) {

@@ -38,10 +38,12 @@ export async function getUserById(id: string) {
 export async function createSession(data: {
   userId: string;
   interviewType: string;
+  mode?: "full" | "fast";
 }) {
+  const initialState = JSON.stringify({ mode: data.mode ?? "full" });
   const rows = await sql`
-    INSERT INTO sessions (user_id, interview_type)
-    VALUES (${data.userId}, ${data.interviewType})
+    INSERT INTO sessions (user_id, interview_type, state_json)
+    VALUES (${data.userId}, ${data.interviewType}, ${initialState})
     RETURNING *
   `;
   return rows[0];

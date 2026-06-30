@@ -52,6 +52,7 @@ export async function POST(req: NextRequest) {
       topicsCovered: storedState.topicsCovered ?? [],
       questionCount: storedState.questionCount ?? 0,
       aiResponse: "",
+      mode: (storedState.mode as "full" | "fast") ?? "full",
     };
 
     if (lastUserMsg?.content?.trim()) {
@@ -74,6 +75,7 @@ export async function POST(req: NextRequest) {
       stage: updatedState.stage,
       topicsCovered: updatedState.topicsCovered,
       questionCount: updatedState.questionCount,
+      mode: currentState.mode,
     });
 
     console.log("[vapi/chat] response:", responseText.slice(0, 120));

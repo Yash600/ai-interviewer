@@ -10,8 +10,13 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const sessionId: string = body.call?.metadata?.sessionId;
+    // VAPI passes metadata via different paths depending on how start() is called
+    const sessionId: string =
+      body.call?.metadata?.sessionId ??
+      body.call?.assistantOverrides?.metadata?.sessionId ??
+      body.metadata?.sessionId;
     console.log("[vapi/chat] sessionId:", sessionId, "call_id:", body.call?.id);
+    console.log("[vapi/chat] full call keys:", JSON.stringify(Object.keys(body.call ?? {})));
 
     if (!sessionId) {
       // Simulation / test call with no session — return a demo response

@@ -28,8 +28,6 @@ export default function SetupPage() {
       });
       const data = await res.json();
       if (!res.ok) { setError(data.error); return; }
-      // Pass access token via sessionStorage (client-side only)
-      sessionStorage.setItem(`retell_token_${data.sessionId}`, data.accessToken);
       router.push(`/interview/${data.sessionId}`);
     } catch {
       setError("Failed to start interview. Try again.");

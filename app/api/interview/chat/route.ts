@@ -24,11 +24,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Missing call_id" }, { status: 400 });
     }
 
-    // Load session from DB
-    const session = await getSessionByCallId(callId);
+    // Try to load session — first by metadata.sessionId (most reliable), then by call_id
+    const metaSessionId = body.call?.metadata?.sessionId;
+    let session = metaSessionId
+      ? await (await import("@/lib/db/queries")).getSessionById(metaSessionId)
+      : null;
     if (!session) {
-      console.log("[chat] session not found for call_id:", callId);
-      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+      session = await getSessionByCallId(callId);
+    }
+
+    if (!session) {
+      // Simulation call or race condition — return a demo response so audio pipeline can be tested
+      console.log("[chat] no session found for call_id:", callId, "— returning demo response");
+      return NextResponse.json({
+        response_id: body.response_id,
+        content: "Hello! I'm Alex, your AI interviewer. This is a test call — your session couldn't be found. Please start a real interview from the app.",
+        content_complete: true,
+      });
     }
 
     console.log("[chat] session found:", session.id, "stage:", session.state_json?.stage ?? "opening");

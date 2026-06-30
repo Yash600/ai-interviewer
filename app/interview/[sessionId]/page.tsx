@@ -3,19 +3,21 @@
 import { useEffect, useRef, useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { RetellWebClient } from "retell-client-js-sdk";
+import Vapi from "@vapi-ai/web";
 
 interface PageProps {
   params: Promise<{ sessionId: string }>;
 }
 
-type CallStatus = "idle" | "connecting" | "active" | "ai_speaking" | "user_speaking" | "ended";
+type CallStatus = "idle" | "connecting" | "active" | "ai_speaking" | "ended";
+
+const VAPI_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!;
+const VAPI_ASSISTANT_ID = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID!;
 
 export default function InterviewRoomPage({ params }: PageProps) {
   const { sessionId } = use(params);
   const router = useRouter();
-  const clientRef = useRef<RetellWebClient | null>(null);
-  const accessTokenRef = useRef<string | null>(null);
+  const vapiRef = useRef<Vapi | null>(null);
   const [status, setStatus] = useState<CallStatus>("idle");
   const [transcript, setTranscript] = useState("");
   const [elapsed, setElapsed] = useState(0);
@@ -25,80 +27,55 @@ export default function InterviewRoomPage({ params }: PageProps) {
   const formatTime = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
-  // Set up client + event listeners once — do NOT auto-start
+  // Set up VAPI client once
   useEffect(() => {
-    const accessToken = sessionStorage.getItem(`retell_token_${sessionId}`);
-    if (!accessToken) { router.push("/interview/setup"); return; }
-    accessTokenRef.current = accessToken;
+    const vapi = new Vapi(VAPI_PUBLIC_KEY);
+    vapiRef.current = vapi;
 
-    const client = new RetellWebClient();
-    clientRef.current = client;
-
-    client.on("call_started", () => {
+    vapi.on("call-start", () => {
       setStatus("active");
       timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
     });
 
-    client.on("call_ready", () => {
-      // Agent audio track subscribed — ensure audio plays
-      client.startAudioPlayback().catch(console.error);
-    });
-
-    client.on("call_ended", () => {
+    vapi.on("call-end", () => {
       setStatus("ended");
       if (timerRef.current) clearInterval(timerRef.current);
     });
 
-    client.on("agent_start_talking", () => setStatus("ai_speaking"));
-    client.on("agent_stop_talking",  () => setStatus("active"));
+    vapi.on("speech-start", () => setStatus("ai_speaking"));
+    vapi.on("speech-end",   () => setStatus("active"));
 
-    client.on("update", (update) => {
-      if (update.transcript) {
-        const last = update.transcript[update.transcript.length - 1];
-        if (last) setTranscript(last.content);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vapi.on("message", (msg: any) => {
+      if (msg.type === "transcript" && msg.transcriptType === "final") {
+        setTranscript(msg.transcript);
       }
     });
 
-    client.on("error", (err) => {
-      console.error("[retell error]", err);
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    vapi.on("error", (err: any) => {
+      console.error("[vapi error]", err);
       setStatus("idle");
     });
 
     return () => {
-      client.stopCall();
+      vapi.stop();
       if (timerRef.current) clearInterval(timerRef.current);
     };
-  }, [sessionId, router]);
+  }, []);
 
-  // Called from the Start button — guaranteed user gesture → audio unlocked
+  // Start call — must be triggered by user click (user gesture unlocks audio)
   async function handleStart() {
-    const client = clientRef.current;
-    const accessToken = accessTokenRef.current;
-    if (!client || !accessToken) return;
-
-    // 1. Play a silent HTML <audio> to unlock the browser's autoplay policy for this domain.
-    //    Chrome requires a real <audio>.play() inside a user gesture before any subsequent
-    //    programmatically-created audio elements are allowed to autoplay.
-    try {
-      // Shortest valid WAV (44 bytes, silence)
-      const silence = new Audio("data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=");
-      silence.volume = 0;
-      await silence.play();
-    } catch { /* ignore — some browsers block even this, but it's best-effort */ }
-
-    // 2. Unlock Web Audio API context
-    try {
-      const ctx = new AudioContext();
-      await ctx.resume();
-      ctx.close();
-    } catch { /* ignore */ }
-
+    const vapi = vapiRef.current;
+    if (!vapi) return;
     setStatus("connecting");
     try {
-      await client.startCall({ accessToken, sampleRate: 24000 });
-      client.startAudioPlayback().catch(console.error);
+      await vapi.start(VAPI_ASSISTANT_ID, {
+        // Pass sessionId so our webhook can look up the session
+        metadata: { sessionId },
+      } as Parameters<typeof vapi.start>[1]);
     } catch (err) {
-      console.error("[startCall error]", err);
+      console.error("[vapi start error]", err);
       setStatus("idle");
     }
   }
@@ -106,36 +83,26 @@ export default function InterviewRoomPage({ params }: PageProps) {
   async function handleEnd() {
     if (ending) return;
     setEnding(true);
-    clientRef.current?.stopCall();
+    vapiRef.current?.stop();
     setStatus("ended");
     if (timerRef.current) clearInterval(timerRef.current);
-
-    try {
-      await fetch("/api/interview/end", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sessionId }),
-      });
-    } catch (err) {
-      console.error("[end error]", err);
-    }
+    // Wait for VAPI end-of-call webhook to generate feedback
+    await new Promise(r => setTimeout(r, 4000));
     router.push(`/report/${sessionId}`);
   }
 
   const statusLabel: Record<CallStatus, string> = {
-    idle:          "Ready to begin",
-    connecting:    "Connecting...",
-    active:        "Listening to you",
-    ai_speaking:   "AI Interviewer Speaking",
-    user_speaking: "Listening to you",
-    ended:         "Session Ended",
+    idle:        "Ready to begin",
+    connecting:  "Connecting...",
+    active:      "Listening to you",
+    ai_speaking: "AI Interviewer Speaking",
+    ended:       "Session Ended",
   };
 
   return (
     <div className="min-h-screen flex flex-col"
       style={{ background: "radial-gradient(ellipse at 50% 30%, #2d1b69 0%, #0d0d1a 60%)" }}>
 
-      {/* Ambient glow */}
       <div className="absolute inset-0 pointer-events-none"
         style={{ background: "radial-gradient(ellipse 600px 400px at 50% 30%, rgba(124,58,237,0.12) 0%, transparent 70%)" }} />
 
@@ -143,7 +110,7 @@ export default function InterviewRoomPage({ params }: PageProps) {
       <div className="relative z-10 flex items-center justify-between px-6 pt-6">
         <div className="flex items-center gap-2 text-xs font-bold px-4 py-2 rounded-full"
           style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "white", backdropFilter: "blur(10px)" }}>
-          🧠 Behavioral Interview
+          🧠 AI Interview
         </div>
         <div className="text-sm font-bold px-4 py-2 rounded-full font-mono"
           style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "#a78bfa", backdropFilter: "blur(10px)" }}>
@@ -151,7 +118,7 @@ export default function InterviewRoomPage({ params }: PageProps) {
         </div>
       </div>
 
-      {/* Center — Orb */}
+      {/* Center */}
       <div className="flex-1 flex flex-col items-center justify-center relative z-10 px-6">
         <div className="relative mb-6">
           {status === "ai_speaking" && (
@@ -175,7 +142,6 @@ export default function InterviewRoomPage({ params }: PageProps) {
           </motion.div>
         </div>
 
-        {/* Status */}
         <div className="flex items-center gap-2 mb-4">
           <span className="w-2 h-2 rounded-full"
             style={{
@@ -187,7 +153,6 @@ export default function InterviewRoomPage({ params }: PageProps) {
           </span>
         </div>
 
-        {/* Waveform */}
         <div className="flex items-center gap-1 h-8 mb-8">
           {Array.from({ length: 12 }).map((_, i) => (
             <div key={i} className={`w-1 rounded-full wave-bar ${status === "ai_speaking" ? "" : "opacity-20"}`}
@@ -195,7 +160,6 @@ export default function InterviewRoomPage({ params }: PageProps) {
           ))}
         </div>
 
-        {/* Transcript */}
         {transcript && (
           <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }}
             className="w-full max-w-sm rounded-2xl p-4 mb-6"
@@ -206,10 +170,9 @@ export default function InterviewRoomPage({ params }: PageProps) {
         )}
       </div>
 
-      {/* Bottom controls */}
+      {/* Controls */}
       <div className="relative z-10 px-6 pb-8 flex gap-3 max-w-sm mx-auto w-full">
         {status === "idle" ? (
-          // Start button — the user gesture that unlocks audio
           <button onClick={handleStart}
             className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-all"
             style={{ background: "linear-gradient(135deg, #7c3aed, #5b21b6)", border: "1px solid rgba(167,139,250,0.3)", color: "white", boxShadow: "0 0 24px rgba(124,58,237,0.4)" }}>
@@ -219,7 +182,7 @@ export default function InterviewRoomPage({ params }: PageProps) {
           <>
             <div className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold"
               style={{ background: "rgba(255,255,255,0.06)", border: "1px solid rgba(255,255,255,0.1)", color: "rgba(255,255,255,0.6)" }}>
-              🎤 {status === "active" || status === "user_speaking" ? "Listening..." : status === "connecting" ? "Connecting..." : "Mic"}
+              🎤 {status === "active" ? "Listening..." : status === "connecting" ? "Connecting..." : status === "ai_speaking" ? "AI Speaking" : "Mic"}
             </div>
             <button onClick={handleEnd} disabled={ending || status === "ended"}
               className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-3 text-sm font-semibold transition-all disabled:opacity-50"

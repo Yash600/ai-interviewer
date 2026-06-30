@@ -15,7 +15,11 @@ export async function POST(req: NextRequest) {
 
     if (type === "end-of-call-report") {
       const call = message?.call ?? body.call;
-      const sessionId = call?.metadata?.sessionId;
+      const sessionId =
+        call?.metadata?.sessionId ??
+        call?.assistantOverrides?.metadata?.sessionId ??
+        body.metadata?.sessionId;
+      console.log("[vapi/webhook] sessionId:", sessionId);
       if (!sessionId) return NextResponse.json({ ok: true });
 
       const session = await getSessionById(sessionId);

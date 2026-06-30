@@ -1,8 +1,8 @@
 import "server-only";
 import type { InterviewState } from "../state";
 
-const MAX_QUESTIONS = 9;
-const MIN_QUESTIONS_BEFORE_CLOSE = 5;
+const MAX_QUESTIONS = 6;        // hard cap — forces close at 6 questions (~7-8 min)
+const MIN_QUESTIONS_BEFORE_CLOSE = 4; // can start wrapping up after 4 good answers
 
 export function routerNode(state: InterviewState): Partial<InterviewState> {
   // Opening — no routing needed, go straight to generate

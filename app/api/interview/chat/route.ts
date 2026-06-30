@@ -69,6 +69,7 @@ export async function POST(req: NextRequest) {
       topicsCovered: storedState.topicsCovered ?? [],
       questionCount: storedState.questionCount ?? 0,
       aiResponse: "",
+      mode: (storedState.mode as "full" | "fast") ?? "full",
     };
 
     // Append new user message if present

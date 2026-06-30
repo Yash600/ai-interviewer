@@ -28,7 +28,7 @@ export function buildSystemPrompt(
     followup: "The candidate's last answer was weak or incomplete. You MUST ask a direct follow-up that references what they specifically said. Probe for missing details, concrete outcomes, or clearer examples.",
     next_question: "The candidate answered well. Briefly acknowledge (1 sentence max) and move to a new topic area you haven't covered yet. Ask one clear question.",
     close: "You've covered enough topics. Close the interview naturally and professionally. Thank the candidate, tell them you'll be in touch, and wish them well. No more questions.",
-    null: "This is the opening. Introduce yourself briefly (name + role), mention what the interview will cover, and ask your first question.",
+    null: "The candidate has just introduced themselves. Acknowledge what they said in ONE sentence, then immediately ask your first interview question. Do NOT introduce yourself — the greeting has already been done.",
   }[nextAction ?? "null"];
 
   return `You are ${persona} conducting a ${interviewType.replace("_", " ")} interview.

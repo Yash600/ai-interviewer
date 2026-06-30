@@ -16,7 +16,10 @@ export async function POST(req: NextRequest) {
       body.call?.assistantOverrides?.metadata?.sessionId ??
       body.metadata?.sessionId;
     console.log("[vapi/chat] sessionId:", sessionId, "call_id:", body.call?.id);
-    console.log("[vapi/chat] full call keys:", JSON.stringify(Object.keys(body.call ?? {})));
+    // Full dump so we can see exactly where VAPI puts metadata
+    console.log("[vapi/chat] call.metadata:", JSON.stringify(body.call?.metadata));
+    console.log("[vapi/chat] call.assistantOverrides:", JSON.stringify(body.call?.assistantOverrides));
+    console.log("[vapi/chat] messages count:", body.messages?.length);
 
     if (!sessionId) {
       // Simulation / test call with no session — return a demo response

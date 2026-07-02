@@ -32,64 +32,177 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center overflow-hidden"
-      style={{ background: "linear-gradient(135deg, #0f0520 0%, #1a0a3a 30%, #2d1b69 60%, #4c2fa0 100%)" }}>
-      {/* Blobs */}
-      <div className="absolute top-[-80px] right-[-80px] w-80 h-80 rounded-full opacity-25"
-        style={{ background: "radial-gradient(circle, #7c3aed, transparent)" }} />
-      <div className="absolute bottom-[-60px] left-[-60px] w-64 h-64 rounded-full opacity-15"
-        style={{ background: "radial-gradient(circle, #ec4899, transparent)" }} />
+    <div
+      className="min-h-screen relative flex items-center justify-center overflow-hidden"
+      style={{ background: "linear-gradient(150deg, #faf7f2 0%, #f3ede3 40%, #ede8f5 100%)" }}
+    >
+      {/* ── Background organic blobs ── */}
+      <div className="absolute pointer-events-none" style={{
+        top: "-120px", right: "-100px",
+        width: 520, height: 520, borderRadius: "50%",
+        background: "radial-gradient(circle at 40% 40%, rgba(251,191,100,0.35) 0%, rgba(249,168,77,0.18) 50%, transparent 75%)",
+        filter: "blur(48px)",
+      }} />
+      <div className="absolute pointer-events-none" style={{
+        bottom: "-80px", left: "-100px",
+        width: 460, height: 460, borderRadius: "50%",
+        background: "radial-gradient(circle at 60% 60%, rgba(167,139,250,0.22) 0%, rgba(139,92,246,0.1) 55%, transparent 75%)",
+        filter: "blur(56px)",
+      }} />
+      <div className="absolute pointer-events-none" style={{
+        top: "38%", left: "10%",
+        width: 280, height: 280, borderRadius: "50%",
+        background: "radial-gradient(circle, rgba(252,211,154,0.28) 0%, transparent 70%)",
+        filter: "blur(40px)",
+      }} />
+      {/* Decorative circle accent */}
+      <div className="absolute pointer-events-none" style={{
+        top: "12%", left: "18%",
+        width: 64, height: 64, borderRadius: "50%",
+        background: "rgba(255,255,255,0.55)",
+        border: "1.5px solid rgba(255,255,255,0.9)",
+        boxShadow: "0 4px 24px rgba(0,0,0,0.06)",
+      }} />
+      <div className="absolute pointer-events-none" style={{
+        bottom: "18%", right: "14%",
+        width: 40, height: 40, borderRadius: "50%",
+        background: "rgba(255,255,255,0.45)",
+        border: "1.5px solid rgba(255,255,255,0.85)",
+        boxShadow: "0 4px 16px rgba(0,0,0,0.05)",
+      }} />
 
-      <motion.div initial={{ opacity: 0, y: 24 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}
-        className="relative z-10 w-full max-w-sm mx-4">
-        <div className="glass-strong rounded-3xl p-8"
-          style={{ boxShadow: "0 24px 80px rgba(0,0,0,0.5)" }}>
+      {/* ── Card ── */}
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+        className="relative z-10 w-full max-w-sm mx-4"
+      >
+        <div style={{
+          background: "rgba(255,255,255,0.82)",
+          backdropFilter: "blur(28px)",
+          WebkitBackdropFilter: "blur(28px)",
+          borderRadius: "24px",
+          border: "1px solid rgba(255,255,255,0.95)",
+          boxShadow: "0 8px 48px rgba(0,0,0,0.08), 0 2px 8px rgba(0,0,0,0.04)",
+          padding: "36px 32px 32px",
+        }}>
 
-          {/* Logo */}
-          <div className="text-center mb-8">
-            <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mx-auto mb-3"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)", boxShadow: "0 8px 24px rgba(124,58,237,0.4)" }}>
-              🎙
+          {/* Header row — brand left, sign up right */}
+          <div className="flex items-center justify-between mb-8">
+            <div className="flex items-center gap-2">
+              <div style={{
+                width: 32, height: 32, borderRadius: "10px",
+                background: "linear-gradient(135deg, #f59e0b, #f97316)",
+                display: "flex", alignItems: "center", justifyContent: "center",
+                fontSize: "15px",
+                boxShadow: "0 4px 12px rgba(249,115,22,0.3)",
+              }}>🎙</div>
+              <span style={{ fontWeight: 700, fontSize: "15px", color: "#1a1a1a", letterSpacing: "-0.2px" }}>
+                InterviewAI
+              </span>
             </div>
-            <h1 className="text-xl font-black text-white">Welcome back</h1>
-            <p className="text-sm mt-1" style={{ color: "rgba(255,255,255,0.4)" }}>Sign in to continue practicing</p>
+            <Link href="/signup" style={{ fontSize: "13px", fontWeight: 600, color: "#6b7280" }}
+              className="hover:text-gray-900 transition-colors">
+              Sign up
+            </Link>
           </div>
 
-          <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Title */}
+          <div className="mb-7">
+            <h1 style={{ fontSize: "26px", fontWeight: 800, color: "#111827", letterSpacing: "-0.5px", lineHeight: 1.2 }}>
+              Log in
+            </h1>
+            <p style={{ fontSize: "13px", color: "#9ca3af", marginTop: "4px" }}>
+              Welcome back — let&apos;s get you practicing
+            </p>
+          </div>
+
+          {/* Form */}
+          <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
+            {/* Email */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>
-                Email
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", padding: "0 4px 0 16px",
+                background: "#f9fafb", border: "1.5px solid #f3f4f6", borderRadius: "14px",
+                transition: "border-color 0.2s" }}>
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+                </svg>
+                <input
+                  type="email" required
+                  placeholder="e-mail address"
+                  value={form.email}
+                  onChange={e => setForm(f => ({ ...f, email: e.target.value }))}
+                  style={{ flex: 1, border: "none", outline: "none", background: "transparent",
+                    padding: "13px 0", fontSize: "14px", color: "#111827" }}
+                />
               </label>
-              <input type="email" required className="input-glass"
-                placeholder="you@example.com"
-                value={form.email}
-                onChange={e => setForm(f => ({ ...f, email: e.target.value }))} />
             </div>
+
+            {/* Password */}
             <div>
-              <label className="block text-xs font-semibold uppercase tracking-wider mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>
-                Password
+              <label style={{ display: "flex", alignItems: "center", gap: "8px", padding: "0 4px 0 16px",
+                background: "#f9fafb", border: "1.5px solid #f3f4f6", borderRadius: "14px" }}>
+                <svg width="15" height="15" fill="none" viewBox="0 0 24 24" stroke="#9ca3af" strokeWidth={1.8}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+                </svg>
+                <input
+                  type="password" required
+                  placeholder="password"
+                  value={form.password}
+                  onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
+                  style={{ flex: 1, border: "none", outline: "none", background: "transparent",
+                    padding: "13px 0", fontSize: "14px", color: "#111827" }}
+                />
+                <button type="button" style={{ fontSize: "12px", color: "#9ca3af", paddingRight: "12px",
+                  background: "none", border: "none", cursor: "pointer", whiteSpace: "nowrap" }}>
+                  forgot
+                </button>
               </label>
-              <input type="password" required className="input-glass"
-                placeholder="••••••••"
-                value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))} />
             </div>
 
             {error && (
-              <p className="text-sm text-red-400 bg-red-500/10 rounded-xl px-4 py-3">{error}</p>
+              <p style={{ fontSize: "13px", color: "#dc2626", background: "rgba(239,68,68,0.07)",
+                borderRadius: "10px", padding: "10px 14px", border: "1px solid rgba(239,68,68,0.15)" }}>
+                {error}
+              </p>
             )}
 
-            <button type="submit" disabled={loading}
-              className="btn-primary w-full mt-2 disabled:opacity-60">
-              {loading ? "Signing in..." : "Sign In →"}
+            {/* Small disclaimer */}
+            <p style={{ fontSize: "11px", color: "#9ca3af", lineHeight: 1.5 }}>
+              For use by adults only (18 years of age and older). In case of accidental data loss, contact our{" "}
+              <span style={{ textDecoration: "underline", cursor: "pointer" }}>support</span>.
+            </p>
+
+            {/* Submit */}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+                gap: "8px", padding: "14px",
+                background: loading ? "#374151" : "#111827",
+                color: "white", border: "none", borderRadius: "50px",
+                fontSize: "14px", fontWeight: 700, cursor: loading ? "not-allowed" : "pointer",
+                boxShadow: "0 4px 20px rgba(17,24,39,0.2)",
+                transition: "background 0.2s, transform 0.1s",
+                letterSpacing: "0.1px",
+              }}
+            >
+              {loading ? "Signing in…" : (
+                <>
+                  Sign in
+                  <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,0.15)",
+                    display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px" }}>
+                    →
+                  </span>
+                </>
+              )}
             </button>
           </form>
 
-          <p className="text-center text-sm mt-6" style={{ color: "rgba(255,255,255,0.4)" }}>
-            No account?{" "}
-            <Link href="/signup" className="text-brand-400 font-semibold hover:text-brand-300 transition-colors">
-              Sign up free
-            </Link>
+          <p style={{ textAlign: "center", fontSize: "13px", color: "#9ca3af", marginTop: "20px" }}>
+            Please practice responsibly!
           </p>
         </div>
       </motion.div>

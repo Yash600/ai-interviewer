@@ -5,11 +5,11 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 
-const TYPE_META: Record<string, { icon: string; color: string; accent: string }> = {
-  behavioral:    { icon: "🧠", color: "#7c3aed", accent: "rgba(124,58,237,0.15)" },
-  technical:     { icon: "💻", color: "#2563eb", accent: "rgba(37,99,235,0.15)"  },
-  system_design: { icon: "🏗",  color: "#059669", accent: "rgba(5,150,105,0.15)"  },
-  hr:            { icon: "🤝", color: "#db2777", accent: "rgba(219,39,119,0.15)" },
+const TYPE_META: Record<string, { icon: string; bg: string; color: string }> = {
+  behavioral:    { icon: "🧠", bg: "rgba(249,115,22,0.1)",  color: "#ea580c" },
+  technical:     { icon: "💻", bg: "rgba(37,99,235,0.09)",  color: "#1d4ed8" },
+  system_design: { icon: "🏗",  bg: "rgba(5,150,105,0.09)", color: "#047857" },
+  hr:            { icon: "🤝", bg: "rgba(124,58,237,0.09)", color: "#6d28d9" },
 };
 
 const TYPE_LABEL: Record<string, string> = {
@@ -32,11 +32,10 @@ export default function DashboardPage() {
       .catch(() => setLoading(false));
   }, []);
 
-  const completed  = sessions.filter(s => s.overall_score);
-  const avgScore   = completed.length
-    ? Math.round(completed.reduce((a, s) => a + s.overall_score, 0) / completed.length)
-    : 0;
-  const bestScore  = completed.length ? Math.max(...completed.map(s => s.overall_score)) : 0;
+  const completed = sessions.filter(s => s.overall_score);
+  const avgScore  = completed.length
+    ? Math.round(completed.reduce((a, s) => a + s.overall_score, 0) / completed.length) : 0;
+  const bestScore = completed.length ? Math.max(...completed.map(s => s.overall_score)) : 0;
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" }).catch(() => {});
@@ -44,13 +43,27 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen relative overflow-x-hidden"
-      style={{ background: "linear-gradient(160deg, #f5f0ff 0%, #edf4ff 45%, #f8f0ff 100%)" }}>
-
+    <div
+      className="min-h-screen relative overflow-x-hidden"
+      style={{ background: "linear-gradient(150deg, #faf7f2 0%, #f3ede3 40%, #ede8f5 100%)" }}
+    >
       {/* Blobs */}
-      <div className="fixed pointer-events-none" style={{ top: "-15%", left: "-10%", width: 600, height: 600, borderRadius: "50%", background: "rgba(167,139,250,0.2)", filter: "blur(100px)" }} />
-      <div className="fixed pointer-events-none" style={{ top: "30%", right: "-15%", width: 500, height: 500, borderRadius: "50%", background: "rgba(96,165,250,0.15)", filter: "blur(90px)" }} />
-      <div className="fixed pointer-events-none" style={{ bottom: "-10%", left: "30%", width: 450, height: 450, borderRadius: "50%", background: "rgba(216,180,254,0.2)", filter: "blur(80px)" }} />
+      <div className="fixed pointer-events-none" style={{ top: "-140px", right: "-120px", width: 580, height: 580, borderRadius: "50%", background: "radial-gradient(circle at 40% 40%, rgba(251,191,100,0.36) 0%, rgba(249,168,77,0.18) 50%, transparent 72%)", filter: "blur(60px)" }} />
+      <div className="fixed pointer-events-none" style={{ bottom: "-100px", left: "-120px", width: 520, height: 520, borderRadius: "50%", background: "radial-gradient(circle at 60% 60%, rgba(167,139,250,0.2) 0%, rgba(139,92,246,0.08) 55%, transparent 75%)", filter: "blur(64px)" }} />
+      <div className="fixed pointer-events-none" style={{ top: "42%", left: "4%", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(252,211,154,0.26) 0%, transparent 70%)", filter: "blur(48px)" }} />
+
+      {/* Decorative circles */}
+      {[
+        { top: "6%",  right: "10%", size: 48 },
+        { top: "65%", left: "3%",   size: 32 },
+      ].map((c, i) => (
+        <div key={i} className="fixed pointer-events-none" style={{
+          top: c.top, left: c.left, right: c.right,
+          width: c.size, height: c.size, borderRadius: "50%",
+          background: "rgba(255,255,255,0.5)", border: "1.5px solid rgba(255,255,255,0.9)",
+          boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+        }} />
+      ))}
 
       <div className="relative z-10 max-w-2xl mx-auto px-5 py-8">
 
@@ -58,26 +71,36 @@ export default function DashboardPage() {
         <motion.div initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }}
           className="flex items-center justify-between mb-10">
           <div className="flex items-center gap-2.5">
-            <div className="w-9 h-9 rounded-xl flex items-center justify-center text-lg"
-              style={{ background: "linear-gradient(135deg, #7c3aed, #ec4899)", boxShadow: "0 4px 16px rgba(124,58,237,0.3)" }}>🎙</div>
-            <span className="text-base font-black" style={{ color: "#1e1b4b" }}>InterviewAI</span>
+            <div style={{
+              width: 34, height: 34, borderRadius: "10px",
+              background: "linear-gradient(135deg, #f59e0b, #f97316)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              fontSize: "16px", boxShadow: "0 4px 12px rgba(249,115,22,0.28)",
+            }}>🎙</div>
+            <span style={{ fontWeight: 800, fontSize: "15px", color: "#111827", letterSpacing: "-0.3px" }}>
+              InterviewAI
+            </span>
           </div>
-          <button onClick={handleLogout}
-            className="text-xs px-4 py-2 rounded-full font-medium transition-all"
-            style={{ background: "rgba(255,255,255,0.55)", backdropFilter: "blur(12px)", border: "1px solid rgba(255,255,255,0.7)", color: "#6b7280", boxShadow: "0 2px 10px rgba(0,0,0,0.05)" }}>
+          <button onClick={handleLogout} style={{
+            fontSize: "13px", fontWeight: 600, color: "#6b7280",
+            padding: "8px 18px", borderRadius: "50px",
+            background: "rgba(255,255,255,0.7)", backdropFilter: "blur(12px)",
+            border: "1.5px solid rgba(255,255,255,0.95)",
+            boxShadow: "0 2px 10px rgba(0,0,0,0.05)", cursor: "pointer",
+          }}>
             Sign out
           </button>
         </motion.div>
 
         {/* Greeting */}
         <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.05 }} className="mb-8">
-          <h1 className="text-3xl font-black mb-1" style={{ color: "#1e1b4b" }}>
+          <h1 style={{ fontSize: "28px", fontWeight: 900, color: "#111827", letterSpacing: "-0.5px", marginBottom: "4px" }}>
             Hey,{" "}
-            <em style={{ fontFamily: "'Playfair Display', serif", color: "#7c3aed", fontStyle: "italic" }}>
+            <em style={{ fontFamily: "'Playfair Display', serif", fontStyle: "italic", color: "#f97316" }}>
               ready to practice?
             </em>
           </h1>
-          <p className="text-sm" style={{ color: "#9ca3af" }}>
+          <p style={{ fontSize: "14px", color: "#9ca3af" }}>
             {sessions.length === 0 ? "Start your first interview session below." : "Keep the momentum going."}
           </p>
         </motion.div>
@@ -87,44 +110,60 @@ export default function DashboardPage() {
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.1 }}
             className="grid grid-cols-3 gap-3 mb-8">
             {[
-              { val: String(sessions.length), label: "Sessions",  color: "#7c3aed" },
-              { val: avgScore > 0 ? String(avgScore) : "—", label: "Avg Score", color: SCORE_COLOR(avgScore) },
+              { val: String(sessions.length), label: "Sessions",   color: "#7c3aed" },
+              { val: avgScore  > 0 ? String(avgScore)  : "—", label: "Avg Score",  color: SCORE_COLOR(avgScore)  },
               { val: bestScore > 0 ? String(bestScore) : "—", label: "Best Score", color: SCORE_COLOR(bestScore) },
             ].map(({ val, label, color }, i) => (
               <motion.div key={label}
                 initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} transition={{ delay: 0.12 + i * 0.05 }}
-                className="rounded-2xl py-5 text-center relative overflow-hidden"
-                style={{ background: "rgba(255,255,255,0.45)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.7)", boxShadow: "0 4px 20px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
-                <div className="text-2xl font-black mb-1" style={{ color }}>{val}</div>
-                <div className="text-xs font-medium" style={{ color: "#9ca3af" }}>{label}</div>
+                style={{
+                  background: "rgba(255,255,255,0.82)", backdropFilter: "blur(28px)",
+                  WebkitBackdropFilter: "blur(28px)",
+                  border: "1px solid rgba(255,255,255,0.95)",
+                  boxShadow: "0 4px 24px rgba(0,0,0,0.06), inset 0 1px 0 rgba(255,255,255,1)",
+                  borderRadius: "20px", padding: "20px 8px", textAlign: "center",
+                }}>
+                <div style={{ fontSize: "26px", fontWeight: 900, color, marginBottom: "4px" }}>{val}</div>
+                <div style={{ fontSize: "12px", color: "#9ca3af", fontWeight: 500 }}>{label}</div>
               </motion.div>
             ))}
           </motion.div>
         )}
 
-        {/* Quick start banner (if no sessions) */}
+        {/* Empty state */}
         {!loading && sessions.length === 0 && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.15 }}
-            className="rounded-3xl p-8 mb-6 text-center"
-            style={{ background: "rgba(255,255,255,0.4)", backdropFilter: "blur(20px)", border: "1px solid rgba(255,255,255,0.7)", boxShadow: "0 8px 32px rgba(124,58,237,0.08)" }}>
-            <div className="text-5xl mb-4">🎙</div>
-            <h2 className="text-lg font-bold mb-2" style={{ color: "#1e1b4b" }}>No sessions yet</h2>
-            <p className="text-sm mb-1" style={{ color: "#9ca3af" }}>Pick an interview type and start practicing.</p>
-            <p className="text-xs" style={{ color: "#c4b5fd" }}>Behavioral · Technical · System Design · HR</p>
+            style={{
+              background: "rgba(255,255,255,0.78)", backdropFilter: "blur(28px)",
+              border: "1px solid rgba(255,255,255,0.95)",
+              boxShadow: "0 8px 40px rgba(0,0,0,0.07)",
+              borderRadius: "24px", padding: "40px 24px", textAlign: "center", marginBottom: "24px",
+            }}>
+            <div style={{ fontSize: "40px", marginBottom: "16px" }}>🎙</div>
+            <h2 style={{ fontSize: "16px", fontWeight: 800, color: "#111827", marginBottom: "6px" }}>No sessions yet</h2>
+            <p style={{ fontSize: "13px", color: "#9ca3af" }}>Pick an interview type and start practicing.</p>
+            <p style={{ fontSize: "12px", color: "#d1b896", marginTop: "4px" }}>Behavioral · Technical · System Design · HR</p>
           </motion.div>
         )}
 
-        {/* Interview types quick pick */}
+        {/* Quick type grid (empty state) */}
         {sessions.length === 0 && !loading && (
           <motion.div initial={{ opacity: 0, y: 12 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.2 }}
             className="grid grid-cols-2 gap-3 mb-6">
             {Object.entries(TYPE_META).map(([type, meta], i) => (
               <motion.div key={type} initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 + i * 0.05 }}>
                 <Link href="/interview/setup">
-                  <div className="rounded-2xl p-4 cursor-pointer transition-all hover:scale-[1.02] active:scale-[0.98]"
-                    style={{ background: "rgba(255,255,255,0.4)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.65)", boxShadow: "0 4px 16px rgba(0,0,0,0.04)" }}>
-                    <div className="text-2xl mb-2">{meta.icon}</div>
-                    <div className="text-sm font-bold" style={{ color: "#1e1b4b" }}>{TYPE_LABEL[type]}</div>
+                  <div style={{
+                    background: "rgba(255,255,255,0.72)", backdropFilter: "blur(20px)",
+                    border: "1px solid rgba(255,255,255,0.95)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+                    borderRadius: "20px", padding: "18px 16px", cursor: "pointer",
+                    transition: "transform 0.15s",
+                  }}
+                    onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.02)")}
+                    onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}>
+                    <div style={{ fontSize: "22px", marginBottom: "8px" }}>{meta.icon}</div>
+                    <div style={{ fontSize: "13px", fontWeight: 700, color: "#111827" }}>{TYPE_LABEL[type]}</div>
                   </div>
                 </Link>
               </motion.div>
@@ -132,50 +171,63 @@ export default function DashboardPage() {
           </motion.div>
         )}
 
-        {/* Sessions list */}
+        {/* Session list */}
         {loading ? (
           <div className="py-16 flex justify-center">
-            <div className="w-8 h-8 rounded-full border-2 border-t-transparent animate-spin" style={{ borderColor: "#a78bfa", borderTopColor: "transparent" }} />
+            <div style={{ width: 28, height: 28, borderRadius: "50%", border: "2.5px solid #f97316", borderTopColor: "transparent", animation: "spin 0.7s linear infinite" }} />
           </div>
         ) : sessions.length > 0 && (
           <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.15 }}>
-            <p className="text-xs font-bold uppercase tracking-widest mb-3" style={{ color: "#c4b5fd" }}>Recent Sessions</p>
-            <div className="flex flex-col gap-3 mb-6">
+            <p style={{ fontSize: "11px", fontWeight: 700, letterSpacing: "0.8px", color: "#c4a882", textTransform: "uppercase", marginBottom: "12px" }}>
+              Recent Sessions
+            </p>
+            <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginBottom: "24px" }}>
               {sessions.map((s, i) => {
-                const meta = TYPE_META[s.interview_type] ?? TYPE_META.behavioral;
+                const meta  = TYPE_META[s.interview_type] ?? TYPE_META.behavioral;
                 const score = s.overall_score;
                 return (
                   <motion.div key={s.id}
                     initial={{ opacity: 0, x: -12 }} animate={{ opacity: 1, x: 0 }} transition={{ delay: 0.18 + i * 0.04 }}>
                     <Link href={s.status === "completed" ? `/report/${s.id}` : "#"}>
-                      <div className="flex items-center gap-4 rounded-2xl p-4 transition-all hover:scale-[1.01] active:scale-[0.99] cursor-pointer"
-                        style={{ background: "rgba(255,255,255,0.4)", backdropFilter: "blur(16px)", border: "1px solid rgba(255,255,255,0.65)", boxShadow: "0 4px 16px rgba(0,0,0,0.03), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
+                      <div style={{
+                        display: "flex", alignItems: "center", gap: "14px",
+                        background: "rgba(255,255,255,0.78)", backdropFilter: "blur(24px)",
+                        WebkitBackdropFilter: "blur(24px)",
+                        border: "1px solid rgba(255,255,255,0.95)",
+                        boxShadow: "0 4px 20px rgba(0,0,0,0.05), inset 0 1px 0 rgba(255,255,255,1)",
+                        borderRadius: "18px", padding: "14px 16px", cursor: "pointer",
+                        transition: "transform 0.15s",
+                      }}
+                        onMouseEnter={e => (e.currentTarget.style.transform = "scale(1.01)")}
+                        onMouseLeave={e => (e.currentTarget.style.transform = "scale(1)")}>
 
                         {/* Icon */}
-                        <div className="w-11 h-11 rounded-xl flex items-center justify-center text-xl flex-shrink-0"
-                          style={{ background: meta.accent, border: `1px solid ${meta.color}22` }}>
+                        <div style={{
+                          width: 44, height: 44, borderRadius: "14px", flexShrink: 0,
+                          background: meta.bg, display: "flex", alignItems: "center", justifyContent: "center", fontSize: "20px",
+                        }}>
                           {meta.icon}
                         </div>
 
                         {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <p className="text-sm font-bold" style={{ color: "#1e1b4b" }}>{TYPE_LABEL[s.interview_type]}</p>
-                          <p className="text-xs" style={{ color: "#9ca3af" }}>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <p style={{ fontSize: "13px", fontWeight: 700, color: "#111827" }}>{TYPE_LABEL[s.interview_type]}</p>
+                          <p style={{ fontSize: "11px", color: "#9ca3af" }}>
                             {new Date(s.started_at).toLocaleDateString("en-GB")} · {s.status}
                           </p>
                         </div>
 
                         {/* Score */}
-                        <div className="text-right flex-shrink-0">
+                        <div style={{ textAlign: "right", flexShrink: 0 }}>
                           {score ? (
                             <>
-                              <p className="text-xl font-black" style={{ color: SCORE_COLOR(score) }}>{score}</p>
-                              <p className="text-xs" style={{ color: "#c4b5fd" }}>
+                              <p style={{ fontSize: "20px", fontWeight: 900, color: SCORE_COLOR(score) }}>{score}</p>
+                              <p style={{ fontSize: "11px", color: "#9ca3af" }}>
                                 {score >= 80 ? "Strong" : score >= 65 ? "Good" : "Practice"}
                               </p>
                             </>
                           ) : (
-                            <p className="text-sm font-medium" style={{ color: "#d1d5db" }}>
+                            <p style={{ fontSize: "14px", color: "#d1d5db" }}>
                               {s.status === "pending" ? "—" : "→"}
                             </p>
                           )}
@@ -192,9 +244,16 @@ export default function DashboardPage() {
         {/* CTA */}
         <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.25 }}>
           <Link href="/interview/setup">
-            <button className="w-full flex items-center justify-center gap-2 rounded-2xl py-4 text-sm font-bold transition-all active:scale-[0.98]"
-              style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.9) 0%, rgba(91,33,182,0.92) 100%)", color: "white", boxShadow: "0 8px 32px rgba(124,58,237,0.28), inset 0 1px 0 rgba(255,255,255,0.2)", border: "1px solid rgba(167,139,250,0.4)" }}>
+            <button style={{
+              width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+              gap: "10px", padding: "15px",
+              background: "#111827", color: "white", border: "none", borderRadius: "50px",
+              fontSize: "14px", fontWeight: 700, cursor: "pointer",
+              boxShadow: "0 8px 32px rgba(17,24,39,0.22)",
+              letterSpacing: "0.1px",
+            }}>
               🎙 Start New Interview
+              <span style={{ width: 28, height: 28, borderRadius: "50%", background: "rgba(255,255,255,0.15)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "13px" }}>→</span>
             </button>
           </Link>
         </motion.div>

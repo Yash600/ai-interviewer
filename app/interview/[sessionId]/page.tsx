@@ -11,13 +11,13 @@ interface PageProps {
 
 type CallStatus = "idle" | "connecting" | "active" | "ai_speaking" | "ended";
 
-const VAPI_PUBLIC_KEY  = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!;
+const VAPI_PUBLIC_KEY   = process.env.NEXT_PUBLIC_VAPI_PUBLIC_KEY!;
 const VAPI_ASSISTANT_ID = process.env.NEXT_PUBLIC_VAPI_ASSISTANT_ID!;
 
 export default function InterviewRoomPage({ params }: PageProps) {
   const { sessionId } = use(params);
-  const router = useRouter();
-  const vapiRef = useRef<Vapi | null>(null);
+  const router        = useRouter();
+  const vapiRef       = useRef<Vapi | null>(null);
 
   const [status,          setStatus         ] = useState<CallStatus>("idle");
   const [currentQuestion, setCurrentQuestion] = useState("");
@@ -27,7 +27,7 @@ export default function InterviewRoomPage({ params }: PageProps) {
   const [isMuted,         setIsMuted        ] = useState(false);
   const timerRef = useRef<NodeJS.Timeout | null>(null);
 
-  const formatTime = (s: number) =>
+  const fmt = (s: number) =>
     `${String(Math.floor(s / 60)).padStart(2, "0")}:${String(s % 60).padStart(2, "0")}`;
 
   useEffect(() => {
@@ -38,46 +38,32 @@ export default function InterviewRoomPage({ params }: PageProps) {
       setStatus("active");
       timerRef.current = setInterval(() => setElapsed(e => e + 1), 1000);
     });
-
     vapi.on("call-end", () => {
       setStatus("ended");
       if (timerRef.current) clearInterval(timerRef.current);
     });
-
     vapi.on("speech-start", () => setStatus("ai_speaking"));
     vapi.on("speech-end",   () => setStatus("active"));
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     vapi.on("message", (msg: any) => {
-      // User transcript
-      if (msg.type === "transcript" && msg.transcriptType === "final" && msg.role === "user") {
+      if (msg.type === "transcript" && msg.transcriptType === "final" && msg.role === "user")
         setUserTranscript(msg.transcript);
-      }
-      // AI question — several event shapes VAPI may use
-      if (msg.type === "transcript" && msg.transcriptType === "final" && msg.role === "assistant") {
+      if (msg.type === "transcript" && msg.transcriptType === "final" && msg.role === "assistant")
         setCurrentQuestion(msg.transcript);
-      }
       if (msg.type === "conversation-update") {
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         const conv: any[] = msg.conversation ?? [];
         const lastAI = [...conv].reverse().find(m => m.role === "assistant");
         if (lastAI?.content) setCurrentQuestion(lastAI.content);
       }
-      if (msg.type === "model-output" && msg.output) {
-        setCurrentQuestion(msg.output);
-      }
+      if (msg.type === "model-output" && msg.output) setCurrentQuestion(msg.output);
     });
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    vapi.on("error", (err: any) => {
-      console.error("[vapi error]", err);
-      setStatus("idle");
-    });
+    vapi.on("error", (err: any) => { console.error("[vapi]", err); setStatus("idle"); });
 
-    return () => {
-      vapi.stop();
-      if (timerRef.current) clearInterval(timerRef.current);
-    };
+    return () => { vapi.stop(); if (timerRef.current) clearInterval(timerRef.current); };
   }, []);
 
   async function handleStart() {
@@ -85,191 +71,232 @@ export default function InterviewRoomPage({ params }: PageProps) {
     if (!vapi) return;
     setStatus("connecting");
     try {
-      await vapi.start(VAPI_ASSISTANT_ID, {
-        metadata: { sessionId },
-      } as Parameters<typeof vapi.start>[1]);
-    } catch (err) {
-      console.error("[vapi start]", err);
-      setStatus("idle");
-    }
+      await vapi.start(VAPI_ASSISTANT_ID, { metadata: { sessionId } } as Parameters<typeof vapi.start>[1]);
+    } catch (err) { console.error("[vapi start]", err); setStatus("idle"); }
   }
 
   function toggleMute() {
-    try {
-      const newMuted = !isMuted;
-      vapiRef.current?.setMuted(newMuted);
-      setIsMuted(newMuted);
-    } catch { /* ignore */ }
+    try { const m = !isMuted; vapiRef.current?.setMuted(m); setIsMuted(m); } catch { /* ignore */ }
   }
 
   async function handleEnd() {
     if (ending) return;
-    setEnding(true);
-    vapiRef.current?.stop();
-    setStatus("ended");
+    setEnding(true); vapiRef.current?.stop(); setStatus("ended");
     if (timerRef.current) clearInterval(timerRef.current);
     await new Promise(r => setTimeout(r, 4000));
     router.push(`/report/${sessionId}`);
   }
 
-  const isAISpeaking  = status === "ai_speaking";
-  const isConnected   = status === "active" || status === "ai_speaking";
-  const userActive    = isConnected && !isAISpeaking;
+  const isAISpeaking = status === "ai_speaking";
+  const isConnected  = status === "active" || status === "ai_speaking";
+  const userActive   = isConnected && !isAISpeaking;
+
+  // Status labels
+  const aiLabel   = isAISpeaking ? "Speaking" : status === "connecting" ? "Connecting…" : status === "idle" ? "Ready" : "Listening";
+  const userLabel = isMuted ? "Muted" : userActive ? "Your turn" : isAISpeaking ? "Listening" : status === "idle" ? "Ready" : "…";
 
   return (
-    <div className="h-screen flex flex-col relative overflow-hidden select-none"
-      style={{ background: "linear-gradient(160deg, #f5f0ff 0%, #edf4ff 45%, #f8f0ff 100%)" }}>
-
-      {/* Floating blobs */}
-      <div className="absolute pointer-events-none" style={{ top: "-15%", left: "-12%", width: 550, height: 550, borderRadius: "50%", background: "rgba(167,139,250,0.22)", filter: "blur(90px)" }} />
-      <div className="absolute pointer-events-none" style={{ top: "25%", right: "-12%", width: 480, height: 480, borderRadius: "50%", background: "rgba(96,165,250,0.18)", filter: "blur(80px)" }} />
-      <div className="absolute pointer-events-none" style={{ bottom: "-8%", left: "35%", width: 420, height: 420, borderRadius: "50%", background: "rgba(216,180,254,0.22)", filter: "blur(80px)" }} />
+    <div
+      className="h-screen flex flex-col relative overflow-hidden select-none"
+      style={{ background: "linear-gradient(150deg, #faf7f2 0%, #f3ede3 40%, #ede8f5 100%)" }}
+    >
+      {/* Background blobs */}
+      <div className="absolute pointer-events-none" style={{ top: "-140px", right: "-120px", width: 580, height: 580, borderRadius: "50%", background: "radial-gradient(circle at 40% 40%, rgba(251,191,100,0.36) 0%, rgba(249,168,77,0.18) 50%, transparent 72%)", filter: "blur(60px)" }} />
+      <div className="absolute pointer-events-none" style={{ bottom: "-100px", left: "-120px", width: 520, height: 520, borderRadius: "50%", background: "radial-gradient(circle at 60% 60%, rgba(167,139,250,0.2) 0%, rgba(139,92,246,0.08) 55%, transparent 75%)", filter: "blur(64px)" }} />
+      <div className="absolute pointer-events-none" style={{ top: "40%", left: "8%", width: 300, height: 300, borderRadius: "50%", background: "radial-gradient(circle, rgba(252,211,154,0.22) 0%, transparent 70%)", filter: "blur(48px)" }} />
 
       {/* ── Header ── */}
       <header className="relative z-10 flex items-center justify-between px-6 pt-5 pb-3 shrink-0">
-        <div className="flex items-center gap-2 px-4 py-2 rounded-2xl text-xs font-bold"
-          style={glass({ tint: "purple", shadow: true })}>
-          🧠 AI Interview
+        {/* Brand pill */}
+        <div style={{
+          display: "flex", alignItems: "center", gap: "8px",
+          padding: "8px 16px", borderRadius: "50px",
+          background: "rgba(255,255,255,0.78)", backdropFilter: "blur(20px)",
+          border: "1.5px solid rgba(255,255,255,0.95)",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+        }}>
+          <div style={{
+            width: 22, height: 22, borderRadius: "6px",
+            background: "linear-gradient(135deg, #f59e0b, #f97316)",
+            display: "flex", alignItems: "center", justifyContent: "center", fontSize: "11px",
+          }}>🎙</div>
+          <span style={{ fontSize: "12px", fontWeight: 700, color: "#111827" }}>AI Interview</span>
+          {isConnected && (
+            <span style={{ display: "flex", alignItems: "center", gap: "5px" }}>
+              <span style={{ width: 6, height: 6, borderRadius: "50%", background: "#22c55e", boxShadow: "0 0 6px rgba(34,197,94,0.7)" }} />
+              <span style={{ fontSize: "11px", fontWeight: 600, color: "#16a34a" }}>Live</span>
+            </span>
+          )}
         </div>
 
-        <div className="flex items-center gap-2">
-          {isConnected && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium"
-              style={glass({})}>
-              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" style={{ boxShadow: "0 0 6px #34d399" }} />
-              <span style={{ color: "#374151" }}>Live</span>
-            </div>
-          )}
-          <div className="px-4 py-2 rounded-2xl text-sm font-bold font-mono"
-            style={{ ...glass({ tint: "purple" }), color: "#7c3aed" }}>
-            ⏱ {formatTime(elapsed)}
-          </div>
+        {/* Timer */}
+        <div style={{
+          padding: "8px 18px", borderRadius: "50px",
+          background: "rgba(255,255,255,0.78)", backdropFilter: "blur(20px)",
+          border: "1.5px solid rgba(255,255,255,0.95)",
+          boxShadow: "0 2px 12px rgba(0,0,0,0.06)",
+          fontSize: "14px", fontWeight: 800, fontFamily: "monospace",
+          color: elapsed > 0 ? "#111827" : "#9ca3af",
+          letterSpacing: "1px",
+        }}>
+          {fmt(elapsed)}
         </div>
       </header>
 
       {/* ── Split panels ── */}
-      <main className="relative z-10 flex-1 flex gap-4 px-6 pb-4 min-h-0">
+      <main className="relative z-10 flex-1 flex gap-4 px-5 pb-3 min-h-0">
 
         {/* Left — AI Interviewer */}
-        <div className="flex-1 flex flex-col items-center justify-center rounded-3xl p-6 relative overflow-hidden"
-          style={panelStyle("purple")}>
+        <div className="flex-1 flex flex-col items-center justify-center rounded-3xl p-6 relative overflow-hidden" style={{
+          background: "rgba(255,255,255,0.62)", backdropFilter: "blur(40px)",
+          WebkitBackdropFilter: "blur(40px)",
+          border: "1px solid rgba(255,255,255,0.95)",
+          boxShadow: "0 16px 56px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.02)",
+        }}>
+          {/* Subtle tint */}
+          <div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ background: "linear-gradient(145deg, rgba(249,115,22,0.03) 0%, transparent 60%)" }} />
 
-          <div className="absolute inset-0 rounded-3xl pointer-events-none"
-            style={{ background: "linear-gradient(135deg, rgba(167,139,250,0.07) 0%, transparent 55%)" }} />
+          {/* Label */}
+          <span style={{
+            fontSize: "10px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase",
+            padding: "5px 14px", borderRadius: "20px", marginBottom: "24px",
+            background: "rgba(249,115,22,0.08)", color: "#ea580c", border: "1px solid rgba(249,115,22,0.18)",
+          }}>AI Interviewer</span>
 
-          <span className="text-xs font-bold uppercase tracking-widest mb-5 px-3 py-1 rounded-full"
-            style={{ background: "rgba(124,58,237,0.1)", color: "#7c3aed", border: "1px solid rgba(124,58,237,0.2)" }}>
-            AI Interviewer
-          </span>
-
-          {/* Orb */}
-          <div className="relative mb-5">
+          {/* Avatar */}
+          <div className="relative mb-5" style={{ position: "relative" }}>
+            {/* Pulse rings */}
             {isAISpeaking && (
               <>
-                <motion.div className="absolute rounded-full"
-                  animate={{ scale: [1, 1.4, 1], opacity: [0.35, 0, 0.35] }}
-                  transition={{ duration: 2, repeat: Infinity }}
-                  style={{ inset: -24, background: "radial-gradient(circle, rgba(124,58,237,0.25) 0%, transparent 70%)" }} />
-                <motion.div className="absolute rounded-full"
-                  animate={{ scale: [1, 1.6, 1], opacity: [0.18, 0, 0.18] }}
-                  transition={{ duration: 2, repeat: Infinity, delay: 0.35 }}
-                  style={{ inset: -40, background: "radial-gradient(circle, rgba(124,58,237,0.15) 0%, transparent 70%)" }} />
+                <motion.div animate={{ scale: [1, 1.45, 1], opacity: [0.3, 0, 0.3] }}
+                  transition={{ duration: 2.2, repeat: Infinity }}
+                  style={{ position: "absolute", inset: -28, borderRadius: "50%", background: "radial-gradient(circle, rgba(249,115,22,0.2) 0%, transparent 70%)" }} />
+                <motion.div animate={{ scale: [1, 1.65, 1], opacity: [0.15, 0, 0.15] }}
+                  transition={{ duration: 2.2, repeat: Infinity, delay: 0.4 }}
+                  style={{ position: "absolute", inset: -48, borderRadius: "50%", background: "radial-gradient(circle, rgba(249,115,22,0.12) 0%, transparent 70%)" }} />
               </>
             )}
+            {/* Avatar circle */}
             <motion.div
-              animate={{ scale: isAISpeaking ? [1, 1.05, 1] : 1 }}
-              transition={{ duration: 1.4, repeat: Infinity }}
-              className="w-32 h-32 rounded-full flex items-center justify-center text-5xl relative"
+              animate={{ scale: isAISpeaking ? [1, 1.04, 1] : 1 }}
+              transition={{ duration: 1.6, repeat: Infinity }}
               style={{
-                background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.9) 0%, rgba(167,139,250,0.55) 40%, rgba(109,40,217,0.75) 100%)",
+                width: 120, height: 120, borderRadius: "50%",
+                background: "linear-gradient(145deg, #ffffff 0%, #fde8d0 35%, #f97316 80%, #ea580c 100%)",
                 boxShadow: isAISpeaking
-                  ? "0 0 48px rgba(124,58,237,0.4), 0 0 100px rgba(124,58,237,0.12), inset 0 2px 0 rgba(255,255,255,0.65)"
-                  : "0 6px 28px rgba(124,58,237,0.2), inset 0 2px 0 rgba(255,255,255,0.65)",
-                border: "1.5px solid rgba(255,255,255,0.75)",
+                  ? "0 0 0 4px rgba(249,115,22,0.15), 0 12px 48px rgba(249,115,22,0.28), inset 0 2px 0 rgba(255,255,255,0.8)"
+                  : "0 8px 32px rgba(249,115,22,0.15), inset 0 2px 0 rgba(255,255,255,0.8)",
+                border: "2px solid rgba(255,255,255,0.9)",
+                display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
               }}>
-              🤖
+              {/* Monogram */}
+              <span style={{ fontSize: "38px", fontWeight: 900, color: "white", letterSpacing: "-1px", textShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>A</span>
+              {/* Specular highlight */}
+              <div style={{ position: "absolute", top: 10, left: 16, width: 28, height: 16, borderRadius: "50%", background: "rgba(255,255,255,0.45)", filter: "blur(6px)" }} />
             </motion.div>
           </div>
 
-          <p className="text-base font-bold mb-0.5" style={{ color: "#1e1b4b" }}>Alex</p>
-          <p className="text-xs mb-5" style={{ color: "#9ca3af" }}>Senior Recruiter · AI</p>
+          <p style={{ fontSize: "15px", fontWeight: 700, color: "#111827", marginBottom: "2px" }}>Alex</p>
+          <p style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "16px" }}>Senior Recruiter · AI</p>
 
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all"
-            style={{
-              background: isAISpeaking ? "rgba(124,58,237,0.1)" : "rgba(0,0,0,0.04)",
-              border: `1px solid ${isAISpeaking ? "rgba(124,58,237,0.28)" : "rgba(0,0,0,0.07)"}`,
-              color: isAISpeaking ? "#7c3aed" : "#9ca3af",
-            }}>
-            <span className="w-2 h-2 rounded-full transition-all"
-              style={{ background: isAISpeaking ? "#7c3aed" : "#d1d5db", boxShadow: isAISpeaking ? "0 0 8px #7c3aed" : "none" }} />
-            {isAISpeaking ? "Speaking…" : status === "connecting" ? "Connecting…" : status === "idle" ? "Ready" : "Listening"}
+          {/* Status badge */}
+          <div style={{
+            display: "flex", alignItems: "center", gap: "7px",
+            padding: "7px 16px", borderRadius: "50px",
+            background: isAISpeaking ? "rgba(249,115,22,0.08)" : "rgba(0,0,0,0.04)",
+            border: `1px solid ${isAISpeaking ? "rgba(249,115,22,0.22)" : "rgba(0,0,0,0.06)"}`,
+            fontSize: "12px", fontWeight: 600,
+            color: isAISpeaking ? "#ea580c" : "#9ca3af",
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: isAISpeaking ? "#f97316" : "#d1d5db",
+              boxShadow: isAISpeaking ? "0 0 8px rgba(249,115,22,0.7)" : "none",
+            }} />
+            {aiLabel}
           </div>
 
-          {/* Speaking waveform */}
+          {/* Waveform */}
           {isAISpeaking && (
-            <div className="flex items-center gap-0.5 mt-4 h-5">
-              {Array.from({ length: 18 }).map((_, i) => (
+            <div style={{ display: "flex", alignItems: "center", gap: "2.5px", marginTop: "14px", height: "20px" }}>
+              {Array.from({ length: 16 }).map((_, i) => (
                 <motion.div key={i}
-                  animate={{ scaleY: [0.2, 1, 0.2] }}
-                  transition={{ duration: 0.5 + (i % 5) * 0.08, repeat: Infinity, delay: i * 0.04 }}
-                  style={{ width: 2, height: "100%", borderRadius: 2, background: "linear-gradient(180deg, #7c3aed, #c4b5fd)", transformOrigin: "center" }} />
+                  animate={{ scaleY: [0.18, 1, 0.18] }}
+                  transition={{ duration: 0.5 + (i % 5) * 0.08, repeat: Infinity, delay: i * 0.045 }}
+                  style={{ width: 2.5, height: "100%", borderRadius: 2, background: "linear-gradient(180deg, #f97316, #fcd19a)", transformOrigin: "center" }} />
               ))}
             </div>
           )}
         </div>
 
         {/* Right — Candidate */}
-        <div className="flex-1 flex flex-col items-center justify-center rounded-3xl p-6 relative overflow-hidden"
-          style={panelStyle("blue")}>
+        <div className="flex-1 flex flex-col items-center justify-center rounded-3xl p-6 relative overflow-hidden" style={{
+          background: "rgba(255,255,255,0.62)", backdropFilter: "blur(40px)",
+          WebkitBackdropFilter: "blur(40px)",
+          border: "1px solid rgba(255,255,255,0.95)",
+          boxShadow: "0 16px 56px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1), inset 0 -1px 0 rgba(0,0,0,0.02)",
+        }}>
+          <div className="absolute inset-0 rounded-3xl pointer-events-none" style={{ background: "linear-gradient(145deg, rgba(59,130,246,0.03) 0%, transparent 60%)" }} />
 
-          <div className="absolute inset-0 rounded-3xl pointer-events-none"
-            style={{ background: "linear-gradient(135deg, rgba(96,165,250,0.06) 0%, transparent 55%)" }} />
+          <span style={{
+            fontSize: "10px", fontWeight: 700, letterSpacing: "1px", textTransform: "uppercase",
+            padding: "5px 14px", borderRadius: "20px", marginBottom: "24px",
+            background: "rgba(59,130,246,0.08)", color: "#1d4ed8", border: "1px solid rgba(59,130,246,0.18)",
+          }}>You</span>
 
-          <span className="text-xs font-bold uppercase tracking-widest mb-5 px-3 py-1 rounded-full"
-            style={{ background: "rgba(59,130,246,0.1)", color: "#1d4ed8", border: "1px solid rgba(59,130,246,0.2)" }}>
-            You
-          </span>
-
-          {/* User orb */}
-          <div className="relative mb-5">
+          {/* User avatar */}
+          <div style={{ position: "relative", marginBottom: "20px" }}>
             {userActive && !isMuted && (
-              <motion.div className="absolute rounded-full"
-                animate={{ scale: [1, 1.3, 1], opacity: [0.28, 0, 0.28] }}
-                transition={{ duration: 1.8, repeat: Infinity }}
-                style={{ inset: -22, background: "radial-gradient(circle, rgba(59,130,246,0.22) 0%, transparent 70%)" }} />
+              <motion.div animate={{ scale: [1, 1.35, 1], opacity: [0.25, 0, 0.25] }}
+                transition={{ duration: 1.9, repeat: Infinity }}
+                style={{ position: "absolute", inset: -24, borderRadius: "50%", background: "radial-gradient(circle, rgba(59,130,246,0.18) 0%, transparent 70%)" }} />
             )}
-            <div className="w-32 h-32 rounded-full flex items-center justify-center text-5xl"
-              style={{
-                background: "radial-gradient(circle at 35% 30%, rgba(255,255,255,0.9) 0%, rgba(147,197,253,0.5) 40%, rgba(37,99,235,0.65) 100%)",
-                boxShadow: (userActive && !isMuted)
-                  ? "0 0 40px rgba(59,130,246,0.3), 0 0 80px rgba(59,130,246,0.1), inset 0 2px 0 rgba(255,255,255,0.65)"
-                  : "0 6px 28px rgba(59,130,246,0.15), inset 0 2px 0 rgba(255,255,255,0.65)",
-                border: "1.5px solid rgba(255,255,255,0.75)",
-              }}>
-              {isMuted ? "🔇" : "🎤"}
+            <div style={{
+              width: 120, height: 120, borderRadius: "50%",
+              background: isMuted
+                ? "linear-gradient(145deg, #ffffff 0%, #fde8d0 40%, #f87171 80%, #ef4444 100%)"
+                : "linear-gradient(145deg, #ffffff 0%, #dbeafe 35%, #3b82f6 80%, #1d4ed8 100%)",
+              boxShadow: (userActive && !isMuted)
+                ? "0 0 0 4px rgba(59,130,246,0.12), 0 12px 40px rgba(59,130,246,0.22), inset 0 2px 0 rgba(255,255,255,0.8)"
+                : "0 8px 28px rgba(59,130,246,0.12), inset 0 2px 0 rgba(255,255,255,0.8)",
+              border: "2px solid rgba(255,255,255,0.9)",
+              display: "flex", alignItems: "center", justifyContent: "center", position: "relative",
+            }}>
+              <span style={{ fontSize: "38px", fontWeight: 900, color: "white", letterSpacing: "-1px", textShadow: "0 2px 8px rgba(0,0,0,0.15)" }}>
+                {isMuted ? "✕" : "Y"}
+              </span>
+              <div style={{ position: "absolute", top: 10, left: 16, width: 28, height: 16, borderRadius: "50%", background: "rgba(255,255,255,0.45)", filter: "blur(6px)" }} />
             </div>
           </div>
 
-          <p className="text-base font-bold mb-0.5" style={{ color: "#1e1b4b" }}>You</p>
-          <p className="text-xs mb-5" style={{ color: "#9ca3af" }}>Candidate</p>
+          <p style={{ fontSize: "15px", fontWeight: 700, color: "#111827", marginBottom: "2px" }}>You</p>
+          <p style={{ fontSize: "12px", color: "#9ca3af", marginBottom: "16px" }}>Candidate</p>
 
-          <div className="flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold transition-all"
-            style={{
-              background: isMuted ? "rgba(239,68,68,0.08)" : userActive ? "rgba(59,130,246,0.1)" : "rgba(0,0,0,0.04)",
-              border: `1px solid ${isMuted ? "rgba(239,68,68,0.25)" : userActive ? "rgba(59,130,246,0.25)" : "rgba(0,0,0,0.07)"}`,
-              color: isMuted ? "#ef4444" : userActive ? "#1d4ed8" : "#9ca3af",
-            }}>
-            <span className="w-2 h-2 rounded-full transition-all"
-              style={{ background: isMuted ? "#ef4444" : userActive ? "#3b82f6" : "#d1d5db", boxShadow: (userActive && !isMuted) ? "0 0 8px #3b82f6" : "none" }} />
-            {isMuted ? "Muted" : userActive ? "Your turn…" : isAISpeaking ? "Listening" : status === "idle" ? "Ready" : "…"}
+          <div style={{
+            display: "flex", alignItems: "center", gap: "7px",
+            padding: "7px 16px", borderRadius: "50px",
+            background: isMuted ? "rgba(239,68,68,0.07)" : userActive ? "rgba(59,130,246,0.08)" : "rgba(0,0,0,0.04)",
+            border: `1px solid ${isMuted ? "rgba(239,68,68,0.22)" : userActive ? "rgba(59,130,246,0.2)" : "rgba(0,0,0,0.06)"}`,
+            fontSize: "12px", fontWeight: 600,
+            color: isMuted ? "#ef4444" : userActive ? "#1d4ed8" : "#9ca3af",
+          }}>
+            <span style={{
+              width: 7, height: 7, borderRadius: "50%",
+              background: isMuted ? "#ef4444" : userActive ? "#3b82f6" : "#d1d5db",
+              boxShadow: (userActive && !isMuted) ? "0 0 8px rgba(59,130,246,0.7)" : "none",
+            }} />
+            {userLabel}
           </div>
 
-          {/* Last thing user said */}
+          {/* Last user transcript */}
           <AnimatePresence>
             {userTranscript && (
               <motion.p initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                className="mt-4 px-4 py-2 rounded-2xl text-xs text-center max-w-xs leading-relaxed"
-                style={{ background: "rgba(59,130,246,0.07)", border: "1px solid rgba(59,130,246,0.14)", color: "#374151" }}>
+                style={{
+                  marginTop: "14px", padding: "10px 14px", borderRadius: "16px",
+                  fontSize: "12px", textAlign: "center", maxWidth: "220px", lineHeight: 1.6,
+                  background: "rgba(59,130,246,0.06)", border: "1px solid rgba(59,130,246,0.12)", color: "#374151",
+                }}>
                 &ldquo;{userTranscript}&rdquo;
               </motion.p>
             )}
@@ -278,20 +305,25 @@ export default function InterviewRoomPage({ params }: PageProps) {
       </main>
 
       {/* ── Footer ── */}
-      <footer className="relative z-10 px-6 pb-6 flex flex-col gap-3 shrink-0">
+      <footer className="relative z-10 px-5 pb-5 flex flex-col gap-3 shrink-0">
 
-        {/* Dynamic question bubble */}
+        {/* Question bubble */}
         <AnimatePresence>
           {currentQuestion && status !== "idle" && (
             <motion.div
               key={currentQuestion}
               initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-              className="w-full rounded-2xl px-5 py-3.5"
-              style={{ background: "rgba(255,255,255,0.5)", backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)", border: "1px solid rgba(255,255,255,0.75)", boxShadow: "0 4px 24px rgba(124,58,237,0.06), inset 0 1px 0 rgba(255,255,255,0.95)" }}>
-              <p className="text-xs font-semibold uppercase tracking-wider mb-1.5" style={{ color: "#7c3aed" }}>
-                💬 Alex asked
+              style={{
+                background: "rgba(255,255,255,0.88)", backdropFilter: "blur(32px)",
+                WebkitBackdropFilter: "blur(32px)",
+                border: "1px solid rgba(255,255,255,0.98)",
+                boxShadow: "0 4px 28px rgba(0,0,0,0.07), inset 0 1px 0 rgba(255,255,255,1)",
+                borderRadius: "20px", padding: "14px 18px",
+              }}>
+              <p style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.8px", color: "#ea580c", textTransform: "uppercase", marginBottom: "6px" }}>
+                Alex asked
               </p>
-              <p className="text-sm leading-relaxed font-medium" style={{ color: "#1f2937" }}>
+              <p style={{ fontSize: "13px", lineHeight: 1.65, fontWeight: 500, color: "#1f2937" }}>
                 {currentQuestion}
               </p>
             </motion.div>
@@ -300,51 +332,62 @@ export default function InterviewRoomPage({ params }: PageProps) {
 
         {/* Controls */}
         {status === "idle" ? (
-          <button onClick={handleStart}
-            className="w-full flex items-center justify-center gap-3 rounded-2xl py-4 text-sm font-bold transition-all active:scale-[0.98]"
-            style={{ background: "linear-gradient(135deg, rgba(124,58,237,0.88) 0%, rgba(91,33,182,0.92) 100%)", backdropFilter: "blur(10px)", border: "1px solid rgba(167,139,250,0.45)", color: "white", boxShadow: "0 8px 32px rgba(124,58,237,0.28), inset 0 1px 0 rgba(255,255,255,0.22)" }}>
+          <button onClick={handleStart} style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+            gap: "10px", padding: "16px",
+            background: "#111827", color: "white", border: "none", borderRadius: "50px",
+            fontSize: "15px", fontWeight: 700, cursor: "pointer",
+            boxShadow: "0 8px 32px rgba(17,24,39,0.25), inset 0 1px 0 rgba(255,255,255,0.08)",
+            letterSpacing: "0.2px",
+          }}>
             🎙 Start Interview
+            <span style={{ width: 30, height: 30, borderRadius: "50%", background: "rgba(255,255,255,0.12)", display: "flex", alignItems: "center", justifyContent: "center", fontSize: "14px" }}>→</span>
           </button>
+        ) : status === "connecting" ? (
+          <div style={{
+            width: "100%", display: "flex", alignItems: "center", justifyContent: "center",
+            gap: "10px", padding: "16px",
+            background: "rgba(255,255,255,0.78)", backdropFilter: "blur(20px)",
+            border: "1.5px solid rgba(255,255,255,0.95)", borderRadius: "50px",
+            fontSize: "14px", fontWeight: 600, color: "#6b7280",
+            boxShadow: "0 4px 20px rgba(0,0,0,0.06)",
+          }}>
+            <motion.div animate={{ rotate: 360 }} transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
+              style={{ width: 16, height: 16, borderRadius: "50%", border: "2px solid #f97316", borderTopColor: "transparent" }} />
+            Connecting…
+          </div>
         ) : (
-          <div className="flex gap-3">
-            <button onClick={toggleMute} disabled={!isConnected}
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-all active:scale-[0.97] disabled:opacity-40"
-              style={{ background: isMuted ? "rgba(239,68,68,0.1)" : "rgba(255,255,255,0.5)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: `1px solid ${isMuted ? "rgba(239,68,68,0.28)" : "rgba(255,255,255,0.75)"}`, color: isMuted ? "#dc2626" : "#374151", boxShadow: "0 4px 16px rgba(0,0,0,0.04), inset 0 1px 0 rgba(255,255,255,0.9)" }}>
+          <div style={{ display: "flex", gap: "10px" }}>
+            {/* Mute */}
+            <button onClick={toggleMute} disabled={!isConnected} style={{
+              flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+              padding: "14px",
+              background: isMuted ? "rgba(239,68,68,0.08)" : "rgba(255,255,255,0.78)",
+              backdropFilter: "blur(24px)", WebkitBackdropFilter: "blur(24px)",
+              border: `1.5px solid ${isMuted ? "rgba(239,68,68,0.25)" : "rgba(255,255,255,0.95)"}`,
+              borderRadius: "50px", fontSize: "13px", fontWeight: 600,
+              color: isMuted ? "#dc2626" : "#374151", cursor: "pointer",
+              boxShadow: "0 4px 16px rgba(0,0,0,0.06)",
+              opacity: isConnected ? 1 : 0.4,
+            }}>
               {isMuted ? "🔇 Unmute" : "🎤 Mute"}
             </button>
-            <button onClick={handleEnd} disabled={ending || status === "ended"}
-              className="flex-1 flex items-center justify-center gap-2 rounded-2xl py-3.5 text-sm font-semibold transition-all active:scale-[0.97] disabled:opacity-50"
-              style={{ background: "rgba(239,68,68,0.09)", backdropFilter: "blur(20px)", WebkitBackdropFilter: "blur(20px)", border: "1px solid rgba(239,68,68,0.22)", color: "#dc2626", boxShadow: "0 4px 16px rgba(239,68,68,0.07), inset 0 1px 0 rgba(255,255,255,0.6)" }}>
-              {ending ? "⏳ Generating report…" : "⬛ End Interview"}
+            {/* End */}
+            <button onClick={handleEnd} disabled={ending || status === "ended"} style={{
+              flex: 1, display: "flex", alignItems: "center", justifyContent: "center", gap: "8px",
+              padding: "14px",
+              background: "rgba(239,68,68,0.07)", backdropFilter: "blur(24px)",
+              WebkitBackdropFilter: "blur(24px)",
+              border: "1.5px solid rgba(239,68,68,0.2)", borderRadius: "50px",
+              fontSize: "13px", fontWeight: 600, color: "#dc2626", cursor: "pointer",
+              boxShadow: "0 4px 16px rgba(239,68,68,0.06)",
+              opacity: (ending || status === "ended") ? 0.5 : 1,
+            }}>
+              {ending ? "⏳ Generating report…" : "◼ End Interview"}
             </button>
           </div>
         )}
       </footer>
     </div>
   );
-}
-
-// ── Style helpers ──────────────────────────────────────────────
-function glass({ tint, shadow }: { tint?: "purple" | "blue"; shadow?: boolean } = {}) {
-  return {
-    background: "rgba(255,255,255,0.45)",
-    backdropFilter: "blur(20px)",
-    WebkitBackdropFilter: "blur(20px)",
-    border: "1px solid rgba(255,255,255,0.7)",
-    boxShadow: [
-      shadow ? `0 4px 20px rgba(${tint === "purple" ? "124,58,237" : "59,130,246"},0.1)` : "",
-      "inset 0 1px 0 rgba(255,255,255,0.9)",
-    ].filter(Boolean).join(", "),
-  };
-}
-
-function panelStyle(tint: "purple" | "blue") {
-  const c = tint === "purple" ? "124,58,237" : "59,130,246";
-  return {
-    background: "rgba(255,255,255,0.28)",
-    backdropFilter: "blur(28px)",
-    WebkitBackdropFilter: "blur(28px)",
-    border: "1px solid rgba(255,255,255,0.65)",
-    boxShadow: `0 8px 40px rgba(${c},0.07), inset 0 1px 0 rgba(255,255,255,0.9)`,
-  };
 }
